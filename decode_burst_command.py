@@ -1,6 +1,7 @@
 import numpy as np
 
 def decode_burst_command(cmd):
+    print(cmd)
     cmd_str = ''.join("{0:8b}".format(x) for x in cmd).replace(' ','0')
     
     if not cmd_str[0:2]=='01':

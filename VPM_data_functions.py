@@ -3,18 +3,6 @@ import pickle
 from scipy.io import loadmat
 
 
-# class Packet(object):
-#     __slots__ = ('data','start_ind','dtype','exp_num','bytecount','checksum_verify','packet_length')
-#     def __init__ (self):
-#         self.data = np.empty(512)
-#         self.start_ind = 0
-#         self.dtype = 'x'
-#         self.exp_num = 0
-#         self.bytecount = 0
-#         self.checksum_verify = False
-#         self.packet_length = 0
-
-
 def find_sequence(arr,seq):
     '''
     Find any instances of a sequence seq in 1d array arr.
@@ -126,16 +114,6 @@ def decode_packets(data):
             p['checksum_verify'] = (checksum - checksum_calc)==0
             p['packet_length'] = packet_length_post_escape
             packets.append(p)
-
-            # p = Packet()
-            # p.data = cur_packet[DATA_START_INDEX:DATA_SEGMENT_LENGTH]
-            # p.start_ind = packet_start_index
-            # p.dtype = datatype
-            # p.exp_num = experiment_number
-            # p.bytecount = bytecount
-            # p.checksum_verify = (checksum - checksum_calc)==0
-            # p.packet_length = packet_length_post_escape
-            # packets.append(p)
 
         except:
             print('exception at packet # %d',x)

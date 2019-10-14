@@ -41,6 +41,8 @@ def FD_reassemble(vec):
 
 def decode_burst_data(packets, burst_cmd = None):
 
+    outs = dict() # The output container
+
     E_packets = list(filter(lambda packet: packet['dtype'] == 'E', packets))
     B_packets = list(filter(lambda packet: packet['dtype'] == 'B', packets))
     G_packets = list(filter(lambda packet: packet['dtype'] == 'G', packets))
@@ -70,7 +72,7 @@ def decode_burst_data(packets, burst_cmd = None):
         print("Using manually-assigned burst command")
         burst_config = decode_burst_command(burst_cmd)
         burst_config['burst_pulses'] = 1;
-
+    print(burst_config)
     # Reassemble bytestreams using packet metadata:
     # Preallocate some space; we'll truncate it later.
     E_data = np.empty(512*len(E_packets))
@@ -101,20 +103,77 @@ def decode_burst_data(packets, burst_cmd = None):
         print("Selected time domain")
         E = TD_reassemble(E_data)
         B = TD_reassemble(E_data)
+
+
     if burst_config['TD_FD_SELECT']==0:
         print("seleced frequency domain")
         E = FD_reassemble(E_data)
         B = FD_reassemble(E_data)
 
+
     # Decode any GPS data we might have
     G = decode_GPS_data(G_data)
     print(G)
+
+    outs['E'] = E
+    outs['B'] = B
+    outs['G'] = G
+
+# Generate time (and frequency) axis vectors for convenience
+
+    system_delay_samps_TD = 73;    
+    system_delay_samps_FD = 200;
+
+    # Construct the appropriate time and frequency axes
+    if burst_config['TD_FD_SELECT']==1:
+        # Time domain burst
+
+        # Get the equivalent sample rate, if decimated
+        if burst_config['DECIMATE_ON']==1:
+            fs_equiv = 80000./burst_config['DECIMATION_FACTOR']
+        else:
+            fs_equiv = 80000.
+            
+        # Seconds from the start of the burst
+        t_axis = np.array([(np.arange(burst_config['SAMPLES_ON']))/fs_equiv +\
+                      (k*(burst_config['SAMPLES_ON'] + burst_config['SAMPLES_OFF']))/fs_equiv for k in range(burst_config['burst_pulses'])]).ravel()
+
+        # Add in system delay 
+        t_axis += system_delay_samps_TD/fs_equiv        
+        outs['t_axis'] = t_axis
+
+    if burst_config['TD_FD_SELECT']==0:
+
+        # Frequency-domain time axis
+        nfft = 1024
+        scale_factor = nfft/2./80000.
+        t_axis = np.array([(np.arange(burst_config['FFTS_ON']))/scale_factor +\
+                      (k*(burst_config['FFTS_ON'] + burst_config['FFTS_OFF']))/scale_factor for k in range(burst_config['burst_pulses'])]).ravel()
+        
+        t_axis += system_delay_samps_FD/fs_equiv        
+        outs['t_axis'] = t_axis
+
+        # Frequency axis
+        f_axis = []
+        seg_length = nfft/2/16
+        for i, v in enumerate(burst_config['BINS']):
+            if v=='1':
+                f_axis.append([np.arange(seg_length)+seg_length*i])
+
+        f_axis = (40000/(nfft/2))*np.array(f_axis).ravel()
+
+        outs['f_axis'] = f_axis
+
+
+    return outs
+
 if __name__ == '__main__':
 
     with open('packets.pkl','rb') as f:
         packets = pickle.load(f)
 
-    decode_burst_data(packets)
+    outs = decode_burst_data(packets)
+    print(outs)
 
     # with open('burst_raw.pkl','wb') as f:
     #     pickle.dump(outs, f)
