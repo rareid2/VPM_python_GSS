@@ -4,13 +4,24 @@ import pickle
 
 
 def decode_status(packets):
-    ''' Locate any "status" packets, and print out a nicely formatted string 
+    '''
+    Author:     Austin Sousa
+                austin.sousa@colorado.edu
+    Version:    1.0
+        Date:   10.14.2019
+    Description:
+        Locates any "status" packets, and prints a nicely-formatted string.
+
     inputs: 
-        packets: a list of packet dictionary objects
+        packets: A list of "packet" dictionaries, as returned from decode_packets.py
+    outputs:
+        A list of nicely-formatted state of health strings.
     '''
 
+    
+    out_data = []
 
-    # get status packets
+    # get status packets    
     for p in filter(lambda packet: packet['dtype'] == 'I', packets):
         data = p['data'][:p['bytecount']]
 
@@ -103,12 +114,20 @@ def decode_status(packets):
                 f'GPS restart:\t\t{gps_resets}\n'
                 
 
-        # Print it. I guess we could return these instead...
-
+        # Print it
         print(nice_str)
+
+        out_data.append(nice_str)
+
+    return out_data
+
 if __name__ == '__main__':
 
     with open('packets.pkl','rb') as f:
         packets = pickle.load(f)
 
-    decode_status(packets)
+    stats = decode_status(packets)
+
+    for stat in stats:
+        print(stat)
+        print("----------------------------------")

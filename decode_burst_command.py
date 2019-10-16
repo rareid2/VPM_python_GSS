@@ -1,6 +1,33 @@
 import numpy as np
 
 def decode_burst_command(cmd):
+    '''
+    Author:     Austin Sousa
+                austin.sousa@colorado.edu
+    Version:    1.0
+        Date:   10.14.2019
+    Description:
+        Parses a three-byte command sequence from VPM; returns a dictionary
+        stocked with various configuration parameters describing the burst.
+
+    outputs:
+        A dictionary containing:
+            TD_FD_SELECT: 1 for time domain, 0 for frequency domain
+            
+            If time domain is selected:
+                WINDOWING: 1 for time-axis windowing; 0 for just taking straight data
+                WINDOW_MODE: configuration parameter describing the on/off duty cycle
+                DECIMATE_ON: 1 to decimate data, 0 to record full 80kHz
+                DECIMATION_MODE: A setting describing the downsampling factor
+                DECIMATION_FACTOR: The decimation factor, e.g., downsample by 2, 4, 8, or 16x.
+                SAMPLES_ON, SAMPLES_OFF: The number of samples to collect and to wait
+            
+            If frequency domain is selected:
+                FFTS_ON, FFTS_OFF: The number of FFT columns to collect and to wait
+                BINS: A string of 16 ones or zeros, corresponding to 16, uniformly-divided
+                      bins along the frequency axis (nominally 512 bins, spanning 0 to 40 kHz).
+                      A '1' enables data collection for this bin.
+    '''
     print(cmd)
     cmd_str = ''.join("{0:8b}".format(x) for x in cmd).replace(' ','0')
     
