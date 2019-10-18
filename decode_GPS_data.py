@@ -128,8 +128,8 @@ def decode_GPS_data(data):
             out['solution_type'] = vel_type
     
     # Python datetime object
-    out['time'] = reference_date + datetime.timedelta(weeks=out['weeknum']) + \
-                  datetime.timedelta(seconds=out['sec_offset'])
+    out['time'] = (reference_date + datetime.timedelta(weeks=out['weeknum']) + \
+                  datetime.timedelta(seconds=out['sec_offset']))
     
 
     return out

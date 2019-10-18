@@ -86,17 +86,16 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     ax1.set_ylabel('E channel\nFrequency [kHz]')
     ax2.set_ylabel('B channel\nFrequency [kHz]')
 
-
     gs.tight_layout(fig)
     
-    plt.show()
+    # plt.show()
     fig.savefig(filename, bbox_inches='tight')
 
 
 
 if __name__ == '__main__':
 
-    print("hey")
+    print("plotting survey data...")
     # Load decoded data:
     with open("decoded_data.pkl","rb") as f:
         d = pickle.load(f)

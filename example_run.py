@@ -2,11 +2,14 @@ import numpy as np
 import pickle
 from scipy.io import loadmat
 import os
+import json
 
 from decode_packets import decode_packets
 from decode_survey_data import decode_survey_data
 from decode_burst_data import decode_burst_data
 from decode_status import decode_status
+from plot_survey_data import plot_survey_data
+from plot_burst_data import plot_burst_data
 
 
 # An example script, showing how to use the decoding software:
@@ -57,8 +60,8 @@ stats = decode_status(packets)
 for stat in stats:
 	print(stat)
 
-
 # Save the decoded data, so we can plot it:
+# (Using Pickle for now; netCDF would be preferable for production)
 outs = dict()
 outs['survey'] = S_data
 outs['burst'] = B_data
@@ -66,3 +69,8 @@ outs['status'] = stats
 
 with open("decoded_data.pkl",'wb') as f:
 	pickle.dump(outs, f)
+
+
+print("plotting...")
+plot_survey_data(S_data, "survey_data.pdf")
+plot_burst_data(B_data, "burst_data.pdf")
