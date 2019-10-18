@@ -46,7 +46,7 @@ def decode_survey_data(packets):
     survey_header = np.array([205, 171, 33, 67])
     survey_footerooter = np.array([137, 103, 33, 67])
 
-    survey_fullscale = 10*np.log10(pow(2,32))
+    # survey_fullscale = 10*np.log10(pow(2,32))
 
     # Index kernels
     gps_index = np.arange(len(survey_header),len(survey_header) + gps_length).astype('int')
@@ -67,10 +67,10 @@ def decode_survey_data(packets):
             B_data = cur_data[bbr_index_noLCS + 4]
             G_data = cur_data[gps_index].astype('uint8')
 
-        # This is how we scaled the data in the Matlab code... I believe this maps the 
-        # VPM values (8-bit log scaled ints) to a log scaled amplitude.
-        E_data = 10*np.log10(pow(2,E_data/8)) - survey_fullscale
-        B_data = 10*np.log10(pow(2,B_data/8)) - survey_fullscale
+        # # This is how we scaled the data in the Matlab code... I believe this maps the 
+        # # VPM values (8-bit log scaled ints) to a log scaled amplitude.
+        # E_data = 10*np.log10(pow(2,E_data/8)) - survey_fullscale
+        # B_data = 10*np.log10(pow(2,B_data/8)) - survey_fullscale
 
         G = decode_GPS_data(G_data)
         if G is not None:

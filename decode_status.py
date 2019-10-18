@@ -35,7 +35,7 @@ def decode_status(packets):
 
         # Cast it to a binary string
         system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
-        
+
         gps_resets = int(system_config[29:32],4)
         e_deployer_counter = int(system_config[0:4],4)
         b_deployer_counter = int(system_config[4:8],4)
@@ -46,6 +46,8 @@ def decode_status(packets):
         b_enable = int(system_config[27])
         lcs_enable=int(system_config[28])
 
+
+        # This might not be working correctly in firmware -- sometimes reports short when data is long (APS, 10.16.2019)
         if system_config[24]=='1':
             survey_period = 4096;
         elif system_config[25]=='1':
@@ -81,7 +83,7 @@ def decode_status(packets):
                 f' \t(%s)\n'%(''.join(str(chr(x)) for x in prev_command)) +\
                 f'Burst Command:\t\t%s '%(''.join('{:02X} '.format(a) for a in prev_burst_command)) +\
                 f' \t[%s]\n'%(''.join("|{0:8b}|".format(x) for x in prev_burst_command).replace(' ','0')) +\
-                f'uBBR Command:\t\t%s '%(''.join('{:02X}'.format(a) for a in prev_bbr_command)) +\
+                f'uBBR Command:\t\t%s '%(''.join('{:02X} '.format(a) for a in prev_bbr_command)) +\
                 f' \t[%s]\n'%(''.join("|{0:8b}|".format(x) for x in prev_bbr_command).replace(' ','0')) +\
                 f'Total Commands:\t\t{total_commands}\n' +\
                 f'E channel enabled:\t{e_enable}\n' +\

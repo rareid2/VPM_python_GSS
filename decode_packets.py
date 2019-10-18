@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 from scipy.io import loadmat
-
+import os
 
 def find_sequence(arr,seq):
     '''
@@ -60,7 +60,7 @@ def decode_packets(data):
 
     # Select only the valid packet start indices
     p_start_inds = p_inds_pre_escape[np.where(p_length_pre_escape == (PACKET_SIZE - 1))]
-
+    print(f"found {len(p_start_inds)} valid packets")
     # Escape characters, and move packets into a list (since their length now varies)
     packets = [];
     vhex = np.vectorize(hex)
@@ -68,7 +68,9 @@ def decode_packets(data):
     # for k in np.arange(-6, 20):
     for x, pind in enumerate(p_start_inds):
         try:
-            cur_packet = np.copy(data[pind:pind+PACKET_SIZE].astype('uint8'))
+            # cur_packet = np.copy(data[pind:pind+PACKET_SIZE].astype('uint8'))
+            cur_packet = data[pind:pind+PACKET_SIZE]
+
             # Check if the bytecount or checksum fields were escaped
             check_escaped = (cur_packet[PACKET_SIZE - 2]!=0)*1
             count_escaped = (cur_packet[PACKET_SIZE - 4]!=0)*1
@@ -129,15 +131,33 @@ def decode_packets(data):
 
 if __name__ == '__main__':
 
-    inp_datafile = '/Users/austin/Dropbox/VPM working directory/Python GSS/Data from AFRL, Feb 2015/Test 2-caltone.mat'
-    mat_datafile = loadmat(inp_datafile, squeeze_me=True)
-    mat_data = mat_datafile["outData_tones"]
+    # inp_datafile = '/Users/austin/Dropbox/VPM working directory/Python GSS/Data from AFRL, Feb 2015/Test 2-caltone.mat'
+    # mat_datafile = loadmat(inp_datafile, squeeze_me=True)
+    # mat_data = mat_datafile["outData_tones"]
 
 
-    print('decoding packets...')
-    packets = decode_packets(mat_data)
+    # print('decoding packets...')
+    # packets = decode_packets(mat_data)
 
-    print('dumping to packets.pkl...')
+    # print('dumping to packets.pkl...')
 
-    with open('packets.pkl','wb') as f:
-        pickle.dump(packets, f)
+    # with open('packets.pkl','wb') as f:
+    #     pickle.dump(packets, f)
+
+
+
+    data_root = 'Data/ditl_cal'
+    d = os.listdir(data_root)
+    tlm_files = sorted([x for x in d if x.endswith('.tlm')])
+
+    raw_data = []
+    for fname in tlm_files:
+        with open(os.path.join(data_root, fname),'rb') as f:
+            cur_data = np.fromfile(f,dtype='uint8')
+            raw_data.append(cur_data)
+
+    data = np.concatenate(raw_data).ravel()
+    print(np.shape(data))
+
+    packets = decode_packets(data)
+

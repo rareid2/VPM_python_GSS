@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 from scipy.io import loadmat
-
+import os
 
 from decode_packets import decode_packets
 from decode_survey_data import decode_survey_data
@@ -12,14 +12,30 @@ from decode_status import decode_status
 # An example script, showing how to use the decoding software:
 
 # 1. Load the data (in this case, a Matlab file. This section will
-#    be modified to digest VPM telemetry packets)
-inp_datafile = 'Data/Test 2-caltone.mat'
-mat_datafile = loadmat(inp_datafile, squeeze_me=True)
-mat_data = mat_datafile["outData_tones"].astype('uint8')
+   # be modified to digest VPM telemetry packets)
+# inp_datafile = 'Data/Test 2-caltone.mat'
+# mat_datafile = loadmat(inp_datafile, squeeze_me=True)
+# raw_data = mat_datafile["outData_tones"].astype('uint8')
+# print(np.shape(raw_data))
+
+# Load data from a folder of .tlm files:
+data_root = 'Data/ditl_cal'
+d = os.listdir(data_root)
+tlm_files = sorted([x for x in d if x.endswith('.tlm')])
+
+raw_data = []
+for fname in tlm_files:
+    with open(os.path.join(data_root, fname),'rb') as f:
+        cur_data = np.fromfile(f,dtype='uint8')
+        raw_data.append(cur_data)
+
+data = np.concatenate(raw_data).ravel()
+print(np.shape(data))
+
 
 # Decode the raw bytes into VPM packets
 print('decoding packets...')
-packets = decode_packets(mat_data)
+packets = decode_packets(data)
 
 # Dump the decoded packets to a file
 print('dumping to packets.pkl...')
