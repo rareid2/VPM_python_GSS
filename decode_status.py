@@ -36,9 +36,9 @@ def decode_status(packets):
         # Cast it to a binary string
         system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
 
-        gps_resets = int(system_config[29:32],4)
-        e_deployer_counter = int(system_config[0:4],4)
-        b_deployer_counter = int(system_config[4:8],4)
+        gps_resets = int(system_config[29:32],base=2)
+        e_deployer_counter = int(system_config[0:4],base=2)
+        b_deployer_counter = int(system_config[4:8],base=2)
         arm_e = int(system_config[13])
         arm_b = int(system_config[14])
         gps_enable = int(system_config[15])
@@ -47,7 +47,6 @@ def decode_status(packets):
         lcs_enable=int(system_config[28])
 
 
-        # This might not be working correctly in firmware -- sometimes reports short when data is long (APS, 10.16.2019)
         if system_config[24]=='1':
             survey_period = 4096;
         elif system_config[25]=='1':
@@ -55,7 +54,7 @@ def decode_status(packets):
         else:
             survey_period = 1024;
 
-        burst_pulses = int(system_config[16:24],8)
+        burst_pulses = int(system_config[16:24],base=2)
 
         # print(gps_resets)
         survey_total = data[24] + pow(2,8)*data[25] + pow(2,16)*data[26] + pow(2,24)*data[27];
@@ -116,8 +115,8 @@ def decode_status(packets):
                 f'GPS restart:\t\t{gps_resets}\n'
                 
 
-        # Print it
-        print(nice_str)
+        # # Print it
+        # print(nice_str)
 
         out_data.append(nice_str)
 

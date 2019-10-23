@@ -27,7 +27,10 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
     for burst in B_data:
 
         cfg = burst['config']
-        timestamp = burst['G']['time']  # This might be a list of timestamps for windowed bursts
+        if len(burst['G']) > 0:
+            timestamp = burst['G'][0]['timestamp']  # This might be a list of timestamps for windowed bursts
+        else:
+            timestamp = 0 #datetime.datetime(1970,1,1,0,0,0).timestamp()
 
         if cfg['TD_FD_SELECT'] == 1:
             # Time domain mode
@@ -41,8 +44,12 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             cb2 = fig.add_subplot(gs[1,2])
 
             td_lims = [-1,1]
-            E_TD.plot(burst['t_axis'], burst['E'])
-            B_TD.plot(burst['t_axis'], burst['B'])
+            # fuc = burst['t_axis'][0:len(burst['E'])]
+            # print('burstE is: ', len(burst['E']), " t_axis is:", len(fuc))
+            # E_TD.plot(burst['t_axis'][:len(burst['E'])], burst['E'])
+            E_TD.plot(burst['E'])
+            B_TD.plot(burst['B'])
+            # B_TD.plot(burst['t_axis'][0:len(burst['B'])], burst['B'])
             E_TD.set_ylim(td_lims)
             B_TD.set_ylim(td_lims)
 
@@ -81,7 +88,8 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             B_TD.set_xlabel('Time [sec]')
             B_FD.set_xlabel('Time [sec]')
 
-            fig.suptitle('Time-Domain Burst\n%s'%timestamp)
+            fig.suptitle('Time-Domain Burst\n%s'%datetime.datetime.utcfromtimestamp(timestamp))
+            plt.show()
             
 
         elif cfg['TD_FD_SELECT'] == 0:

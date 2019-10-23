@@ -73,8 +73,9 @@ def decode_survey_data(packets):
         # B_data = 10*np.log10(pow(2,B_data/8)) - survey_fullscale
 
         G = decode_GPS_data(G_data)
-        if G is not None:
-            print(G['time'])
+        # Print any timestamps we received (should be length 0 or 1)
+        for gg in G:
+            print(datetime.datetime.utcfromtimestamp(gg['timestamp']))
         
         d = dict()
         d['GPS'] = G

@@ -3,6 +3,7 @@ import pickle
 import scipy.stats
 from decode_burst_command import decode_burst_command
 from decode_GPS_data import decode_GPS_data
+from decode_status import decode_status
 
 def remove_trailing_nans(arr1d):
     ''' Trims off the trailing NaNs of a vector.'''
@@ -11,9 +12,12 @@ def remove_trailing_nans(arr1d):
         # Trim leading and trailing:
 #         trimmed = arr1d[notnans[0]: notnans[-1]+1]  # slice from first not-nan to the last one
         # Trim trailing only
-        trimmed = arr1d[:notnans[-1]+1]  # slice from first not-nan to the last one
+        trimmed = arr1d[0:notnans[-1]+1]  # slice from first not-nan to the last one
     else:
         trimmed = np.zeros(0)
+    # print(f"arr has {np.sum(np.isnan(arr1d))} nans")
+    # print(f"Trim has {np.sum(np.isnan(trimmed))} nans")
+        
     return trimmed
 
 def TD_reassemble(vec):
@@ -70,24 +74,36 @@ def decode_burst_data(packets, burst_cmd = None):
             # Get burst nPulses -- this is the one key parameter that isn't defined by the burst command...
             system_config = np.flip(I_packets[0]['data'][20:24])
             system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
-            burst_config['burst_pulses'] = int(system_config[16:24],8)
+            burst_config['burst_pulses'] = int(system_config[16:24],base=2)
 
         else:
             print("Using manually-assigned burst command")
-            burst_config = decode_burst_command(burst_cmd)
+            burst_config = decode_burst_command([96,0,0])
             burst_config['burst_pulses'] = 1;
-        print(burst_config)
+
         # Reassemble bytestreams using packet metadata:
+
+        # Loop through all packets to get the maximum data index:        
+        max_E_ind = max([p['start_ind'] + p['bytecount'] for p in filter(lambda packet: packet['exp_num'] == e_num, E_packets)])
+        max_B_ind = max([p['start_ind'] + p['bytecount'] for p in filter(lambda packet: packet['exp_num'] == e_num, B_packets)])
+        # max_G_ind = max([p['start_ind'] + p['bytecount'] for p in filter(lambda packet: packet['exp_num'] == e_num, G_packets)])
+        
+        print("max E ind is:", max_E_ind, "max B ind is:", max_B_ind)
+        
         # Preallocate some space; we'll truncate it later.
-        E_data = np.empty(512*len(E_packets))
-        B_data = np.empty(512*len(B_packets))
+        E_data = np.empty(max_E_ind)
+        B_data = np.empty(max_B_ind)
         G_data = np.empty(512*len(G_packets))
         E_data[:] = np.nan; B_data[:] = np.nan; G_data[:] = np.nan;
 
         print("reassembling E")
-        for p in filter(lambda packet: packet['exp_num'] == e_num, E_packets):
-            E_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
+
+
         
+        for p in filter(lambda packet: packet['exp_num'] == e_num, E_packets):
+            
+            E_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
+            
         print("reassembling B")
         for p in filter(lambda packet: packet['exp_num'] == e_num, B_packets):
             B_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
@@ -96,12 +112,14 @@ def decode_burst_data(packets, burst_cmd = None):
         for p in filter(lambda packet: packet['exp_num'] == e_num, G_packets):
             G_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
 
+
         # Truncate trailing nans
         # casting to uint8 is desirable, but also nukes the other nans... Eh.
-        E_data = remove_trailing_nans(E_data).astype('uint8')
-        B_data = remove_trailing_nans(B_data).astype('uint8')
-        G_data = remove_trailing_nans(G_data).astype('uint8')
-
+        E_data = remove_trailing_nans(E_data)#.astype('uint8')
+        B_data = remove_trailing_nans(B_data)#.astype('uint8')
+        G_data = remove_trailing_nans(G_data)#.astype('uint8')
+        # print(f"E has {np.sum(np.isnan(E_data))} nans")
+        # print(f"B has {np.sum(np.isnan(B_data))} nans")
         # Juggle the 8-bit values around
         if burst_config['TD_FD_SELECT']==1:
             print("Selected time domain")
@@ -117,7 +135,7 @@ def decode_burst_data(packets, burst_cmd = None):
 
         # Decode any GPS data we might have
         G = decode_GPS_data(G_data)
-        print(G)
+        # print(G)
 
         outs['E'] = E
         outs['B'] = B
@@ -176,6 +194,10 @@ if __name__ == '__main__':
     with open('packets.pkl','rb') as f:
         packets = pickle.load(f)
 
+
+    stats = decode_status(packets)
+    for s in stats:
+        print(s)
     outs = decode_burst_data(packets)
     print(outs)
 

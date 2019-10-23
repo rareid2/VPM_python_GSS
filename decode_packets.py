@@ -63,7 +63,10 @@ def decode_packets(data):
     print(f"found {len(p_start_inds)} valid packets")
     # Escape characters, and move packets into a list (since their length now varies)
     packets = [];
-    vhex = np.vectorize(hex)
+
+    # print(p_inds_pre_escape.tolist())
+    # print(p_length_pre_escape.tolist())
+    # vhex = np.vectorize(hex)
 
     # for k in np.arange(-6, 20):
     for x, pind in enumerate(p_start_inds):
@@ -90,14 +93,8 @@ def decode_packets(data):
             packet_length_post_escape = len(cur_packet)
             checksum_index = packet_length_post_escape + check_escaped - 3
             bytecount_index= packet_length_post_escape + check_escaped + count_escaped - 6
-
-            # # Decode metadata fields
-            # packet_start_index = pow(2,24)*cur_packet[PACKET_COUNT_INDEX] + \
-            #                      pow(2,16)*cur_packet[PACKET_COUNT_INDEX + 1] + \
-            #                      pow(2,8) *cur_packet[PACKET_COUNT_INDEX + 2] + \
-            #                                cur_packet[PACKET_COUNT_INDEX + 3]
-
-                        # Decode metadata fields
+     
+            # Decode metadata fields
             packet_start_index = (cur_packet[PACKET_COUNT_INDEX]     << 24) + \
                                  (cur_packet[PACKET_COUNT_INDEX + 1] << 16) + \
                                  (cur_packet[PACKET_COUNT_INDEX + 2] << 8)  + \
@@ -122,6 +119,7 @@ def decode_packets(data):
             p['checksum_verify'] = (checksum - checksum_calc)==0
             p['packet_length'] = packet_length_post_escape
             packets.append(p)
+            # print(p['bytecount'] - len(p['data']))
 
         except:
             print('exception at packet # %d',x)

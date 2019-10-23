@@ -28,13 +28,17 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     '''
 
     # Assemble into grids:
+
+    if S_data is None:
+        return
+
     E = []
     B = []
     T = []
     F = np.arange(512)*40000/512;
     for S in S_data:
         if S['GPS'] is not None:
-            T.append(S['GPS']['time'])
+            T.append(S['GPS'][0]['timestamp'])
         else:
             T.append(np.NaN)
 
@@ -78,17 +82,17 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     ax1.set_yticklabels([0,10,20,30,40])
     ax2.set_yticks([0,128, 256, 384, 512])
     ax2.set_yticklabels([0,10,20,30,40])
-    formatted_xticklabels = [x.strftime("%H:%M:%S") for x in T]
+    formatted_xticklabels = [datetime.datetime.utcfromtimestamp(x).strftime("%H:%M:%S") for x in T]
     ax2.set_xticklabels(formatted_xticklabels)
     fig.autofmt_xdate()
-    ax2.set_xlabel("Time (H:M:S) on \n%s"%T[0].strftime("%Y-%m-%d"))
+    ax2.set_xlabel("Time (H:M:S) on \n%s"%datetime.datetime.utcfromtimestamp(T[0]).strftime("%Y-%m-%d"))
 
     ax1.set_ylabel('E channel\nFrequency [kHz]')
     ax2.set_ylabel('B channel\nFrequency [kHz]')
 
     gs.tight_layout(fig)
     
-    # plt.show()
+    plt.show()
     fig.savefig(filename, bbox_inches='tight')
 
 
