@@ -43,7 +43,7 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             cb1 = fig.add_subplot(gs[0,2])
             cb2 = fig.add_subplot(gs[1,2])
 
-            td_lims = [-1,1]
+            td_lims = [-32767, 32768] #[-1,1]
             # fuc = burst['t_axis'][0:len(burst['E'])]
             # print('burstE is: ', len(burst['E']), " t_axis is:", len(fuc))
             # E_TD.plot(burst['t_axis'][:len(burst['E'])], burst['E'])

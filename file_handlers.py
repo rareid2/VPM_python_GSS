@@ -58,33 +58,41 @@ def write_survey_netCDF(data, filename='survey_data.nc'):
     latency      = f.createVariable('GPS/metadata/latency','f4',('time'))
 
     # Flip through the list, sorted by timestamp
-    for i, d in enumerate(sorted(outs['survey'], key = lambda i: i['GPS']['timestamp'])):
+    for i, d in enumerate(sorted(outs['survey'], key = lambda i: i['GPS'][0]['timestamp'])):
         E[i,:] = d['E_data']
         B[i,:] = d['B_data']
 
-        T[i] = d['GPS']['timestamp']
+        T[i] = d['GPS'][0]['timestamp']
 
-        lat[i] = d['GPS']['lat']
-        lon[i] = d['GPS']['lon']
-        alt[i] = d['GPS']['alt']
+        lat[i] = d['GPS'][0]['lat']
+        lon[i] = d['GPS'][0]['lon']
+        alt[i] = d['GPS'][0]['alt']
         
-        v_horiz[i] = d['GPS']['horiz_speed']
-        v_vert[i]  = d['GPS']['vert_speed']
-        v_gt[i]    = d['GPS']['ground_track']
+        v_horiz[i] = d['GPS'][0]['horiz_speed']
+        v_vert[i]  = d['GPS'][0]['vert_speed']
+        v_gt[i]    = d['GPS'][0]['ground_track']
 
         # GPS metadata
-        tracked_sats[i] = d['GPS']['tracked_sats']
-        used_sats[i]    = d['GPS']['used_sats']
-        soln_status[i]  = d['GPS']['solution_status']
-        soln_type[i]    = d['GPS']['solution_type']
-        latency[i].     = d['GPS']['latency']
+        tracked_sats[i] = d['GPS'][0]['tracked_sats']
+        used_sats[i]    = d['GPS'][0]['used_sats']
+        soln_status[i]  = d['GPS'][0]['solution_status']
+        soln_type[i]    = d['GPS'][0]['solution_type']
+        latency[i]      = d['GPS'][0]['latency']
 
     f.close()
 
 
+def save_survey_by_hour(data, out_root):
+
+
+
+
+
+
+
 def write_burst_netCDF(data, filename='burst_data.nc'):
 
-    datatype = 'f4' # single, double? int? The original data is 16 bit
+    datatype = 'int16' # single, double? int? The original data is 16 bit
 
     f = netCDF4.Dataset(filename,"w")
 
@@ -114,7 +122,7 @@ def write_burst_netCDF(data, filename='burst_data.nc'):
         B.units = "eng. units"
         B[:] = data['B']
         
-        T = f.createVariable('data/t_axis',datatype,('time'))
+        T = f.createVariable('data/t_axis','f4',('time'))
         T.description = "time axis (seconds elapsed from beginning of burst)"
         T[:] = data['t_axis']
 
@@ -131,11 +139,11 @@ def write_burst_netCDF(data, filename='burst_data.nc'):
         B.description = "Magnetic field burst data"
         B[:] = data['B']
 
-        T = f.createVariable('data/t_axis',datatype,('time'))
+        T = f.createVariable('data/t_axis','f4',('time'))
         T.description = "time axis (seconds elapsed from beginning of burst)"
         T[:] = data['t_axis']
         
-        F = f.createVariable('data/f_axis',datatype,('freq'))
+        F = f.createVariable('data/f_axis','f4',('freq'))
         F.description = "frequency"
         f.units = 'Hz'
         F[:] = data['f_axis']
@@ -170,22 +178,22 @@ def write_burst_netCDF(data, filename='burst_data.nc'):
 
 
     # here's where you should loop over multiple GPS timestamp messages:
-    i=0
-    G = data['G']
-    lat[i] = G['lat']
-    lon[i] = G['lon']
-    alt[i] = G['alt']
+    for i, G in enumerate(data['G']):
+    
+        lat[i] = G['lat']
+        lon[i] = G['lon']
+        alt[i] = G['alt']
 
-    v_horiz[i] = G['horiz_speed']
-    v_vert[i] = G['vert_speed']
-    v_gt[i] = G['ground_track']
+        v_horiz[i] = G['horiz_speed']
+        v_vert[i] = G['vert_speed']
+        v_gt[i] = G['ground_track']
 
-    # GPS metadata
-    tracked_sats[i] = G['tracked_sats']
-    used_sats[i] = G['used_sats']
-    soln_status[i] = G['solution_status']
-    soln_type[i] = G['solution_type']
-    latency[i] = G['latency']
+        # GPS metadata
+        tracked_sats[i] = G['tracked_sats']
+        used_sats[i] = G['used_sats']
+        soln_status[i] = G['solution_status']
+        soln_type[i] = G['solution_type']
+        latency[i] = G['latency']
     f.close()
 
 

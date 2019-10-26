@@ -2,6 +2,10 @@ import numpy as np
 import pickle
 from scipy.io import loadmat
 import os
+import struct
+
+
+
 
 def find_sequence(arr,seq):
     '''
@@ -19,7 +23,7 @@ def find_sequence(arr,seq):
     return(inds)
 
 
-def decode_packets(data):
+def decode_packets(data, fname=None):
     '''
     Author:     Austin Sousa
                 austin.sousa@colorado.edu
@@ -54,6 +58,9 @@ def decode_packets(data):
     DATA_END_INDEX = DATA_START_INDEX + DATA_SEGMENT_LENGTH
     CHECKSUM_INDEX = PACKET_SIZE - 2
 
+    CTCSS_HEADER_LEN = 26
+
+
     # Find all packet start indices
     p_inds_pre_escape = np.array(sorted(np.where(data==0x7E)))
     p_length_pre_escape = np.diff(p_inds_pre_escape)
@@ -71,8 +78,21 @@ def decode_packets(data):
     # for k in np.arange(-6, 20):
     for x, pind in enumerate(p_start_inds):
         try:
-            # cur_packet = np.copy(data[pind:pind+PACKET_SIZE].astype('uint8'))
-            cur_packet = data[pind:pind+PACKET_SIZE]
+            cur_packet = np.copy(data[pind:pind+PACKET_SIZE].astype('uint8'))
+            # cur_packet   = data[pind:pind+PACKET_SIZE]
+            ctcss_header = np.copy(data[pind-CTCSS_HEADER_LEN:pind]).astype('uint8')
+            # print(['{0:X}'.format(x) for x in data[pind:pind + EXPERIMENT_INDEX + 3]])
+
+            # grab data from the CTCSS header
+            C_packet_length = struct.unpack('>I', ctcss_header[0:4].tobytes())[0] # 534
+            C_component_ID  = struct.unpack('>B', ctcss_header[5:6].tobytes())[0] # 34
+            C_interface_ID  = struct.unpack('>B', ctcss_header[6:7].tobytes())[0] # 1
+            C_message_ID    = struct.unpack('>B', ctcss_header[7:8].tobytes())[0] # 2
+            C_epoch_seconds = struct.unpack('>I', ctcss_header[8:12].tobytes())[0]
+            C_nanoseconds   = struct.unpack('>I', ctcss_header[12:16].tobytes())[0]
+            C_reboot_count  = struct.unpack('>H', ctcss_header[16:18].tobytes())[0]
+            # print(C_packet_length)
+            # print(C_nanoseconds*1e-6)
 
             # Check if the bytecount or checksum fields were escaped
             check_escaped = (cur_packet[PACKET_SIZE - 2]!=0)*1
@@ -81,9 +101,13 @@ def decode_packets(data):
             # Calculate the checksum (on the unescaped data):
             checksum_calc = sum(cur_packet[2:CHECKSUM_INDEX - 1])%256
 
-            # Un-escape the packet
+            # Let's look at the 7D values and see if any of 'em are actually escaped:
+            # for e in find_sequence(cur_packet,np.array([0x7D])): # [7D, 5E] -> 7E
+                # print(e)
+                # print("7D at:", ['{0:2X}'.format(x) for x in cur_packet[e-1:e+5]])
+            # Un-escape the packet (Destructive)
             esc1_inds = find_sequence(cur_packet,np.array([0x7D, 0x5E])) # [7D, 5E] -> 7E
-            cur_packet[esc1_inds] = 0x7E
+            cur_packet[esc1_inds] =  0x7E
             cur_packet = np.delete(cur_packet, esc1_inds + 1) 
             esc2_inds = find_sequence(cur_packet,np.array([0x7D, 0x5D])) # [7D, 5D] -> 7D
             cur_packet = np.delete(cur_packet, esc2_inds + 1)
@@ -102,24 +126,39 @@ def decode_packets(data):
 
             datatype = chr(cur_packet[DATA_TYPE_INDEX]) # works!
             experiment_number = cur_packet[EXPERIMENT_INDEX]
+            # print(experiment_number)
             bytecount = 256*cur_packet[bytecount_index] + cur_packet[bytecount_index + 1]
             checksum = cur_packet[checksum_index]
 
             if (checksum - checksum_calc) != 0:
                 print('invalid checksum at packet # %d'%x)
+                # print(cur_packet)
 
             # Pack the decoded packet into a dictionary, and add it to the list
             # (maybe there's a nicer data structure for this - but this is probably the most general case)
             p = dict()
-            p['data'] = np.array(cur_packet[DATA_START_INDEX:(bytecount + DATA_START_INDEX)], dtype='uint8')
+            p['data'] = np.array(cur_packet[DATA_START_INDEX:(bytecount + DATA_START_INDEX)], dtype='uint8').tolist()
             p['start_ind'] = packet_start_index
             p['dtype'] = datatype
             p['exp_num'] = experiment_number
             p['bytecount'] = bytecount
             p['checksum_verify'] = (checksum - checksum_calc)==0
             p['packet_length'] = packet_length_post_escape
+            p['fname'] = fname
+            p['header_ns'] = C_nanoseconds
+            p['header_epoch_sec'] = C_epoch_seconds
+            p['header_reboots'] = C_reboot_count
+
             packets.append(p)
-            # print(p['bytecount'] - len(p['data']))
+
+
+            # if experiment_number==125:
+            #     # print("HEY")
+            #     print(esc1_inds, esc2_inds)
+
+            #     print("pre-escape",['{0:X}'.format(x) for x in data[pind + EXPERIMENT_INDEX-1:pind+EXPERIMENT_INDEX + 3]])
+            #     print("post-escape",['{0:X}'.format(x) for x in cur_packet[EXPERIMENT_INDEX-1:EXPERIMENT_INDEX + 3]])
+            # # print(p['bytecount'] - len(p['data']))
 
         except:
             print('exception at packet # %d',x)

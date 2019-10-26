@@ -27,7 +27,7 @@ def TD_reassemble(vec):
     re = np.reshape(re, [int(len(re)/4),4])
     re = np.stack([(re[:,0] + 256*re[:,1]).astype('int16'), (re[:,2] + 256*re[:,3]).astype('int16')],axis=1)
     re = re.ravel()
-    re = re/pow(2,15)
+    # re = re/pow(2,15)
     return re
     
 def FD_reassemble(vec):
@@ -39,7 +39,7 @@ def FD_reassemble(vec):
     re = np.reshape(re, [int(len(re)/4),4])
     re = np.stack([(re[:,0] + 256*re[:,1]).astype('int16'), (re[:,2] + 256*re[:,3]).astype('int16')],axis=1)
     re = re[:,0] + 1j*re[:,1]
-    re = re/pow(2,15)
+    # re = re/pow(2,15)
     return re
 
 
@@ -137,8 +137,8 @@ def decode_burst_data(packets, burst_cmd = None):
         G = decode_GPS_data(G_data)
         # print(G)
 
-        outs['E'] = E
-        outs['B'] = B
+        outs['E'] = E.astype('int16')
+        outs['B'] = B.astype('int16')
         outs['G'] = G
         outs['config'] = burst_config
 

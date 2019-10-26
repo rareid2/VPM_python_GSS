@@ -29,19 +29,25 @@ def decode_survey_data(packets):
                     the current survey product
     '''
     S_packets = list(filter(lambda packet: packet['dtype'] == 'S', packets))
+    # Sort by arrival time
+    S_packets = sorted(S_packets, key=lambda p: p['header_epoch_sec'] + p['header_ns']*1e-9)
 
     if len(S_packets) == 0:
         print("no survey data present!")
-        return
+        return None, None
 
     # These will roll over every 256 survey columns... need to deal with that
     # in this search. For now, just assume they're unique
+
+    
+    # ax.plot(np.diff([x['exp_num'] for x in S_packets]),'.')
+    # plt.show()
     e_nums = np.unique([x['exp_num'] for x in S_packets])
+
     # print(e_nums)
 
-    LCS_board_present = False # And it never should be!
+    survey_packet_length = 1212
 
-    survey_packet_length = 1260
     gps_length = 180
     survey_header = np.array([205, 171, 33, 67])
     survey_footerooter = np.array([137, 103, 33, 67])
@@ -56,43 +62,64 @@ def decode_survey_data(packets):
 
     # Gather and reassemble the 3-ish survey (system) packets into a single survey (product) packet
     S_data = []
+    complete_surveys = []
+    unused = []
+    separation_time = 3  # seconds
     for e_num in e_nums:
-        
+
         # Reassemble into a single survey data packet
-        cur_data = np.zeros(survey_packet_length)
-        for p in filter(lambda packet: packet['exp_num'] == e_num, S_packets):
-            cur_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
+        cur_packets   = list(filter(lambda packet: packet['exp_num'] == e_num, S_packets))
 
-            E_data = cur_data[bbr_index_noLCS]
-            B_data = cur_data[bbr_index_noLCS + 4]
-            G_data = cur_data[gps_index].astype('uint8')
+        # Divide this list up into segments with nearby arrival times:
+        arrival_times = [p['header_epoch_sec'] + p['header_ns']*1e-9 for p in cur_packets]
+        # Find any significant time differences
+        splits = np.where(np.diff(arrival_times) > separation_time)[0] + 1  
+        # append the first and last indexes to the list, to give us pairs of indexes to slice around
+        splits = np.insert(np.append(splits,[len(cur_packets)]),0,0) 
 
-        # # This is how we scaled the data in the Matlab code... I believe this maps the 
-        # # VPM values (8-bit log scaled ints) to a log scaled amplitude.
-        # E_data = 10*np.log10(pow(2,E_data/8)) - survey_fullscale
-        # B_data = 10*np.log10(pow(2,B_data/8)) - survey_fullscale
+        # Iterate over sub-lists of packets, as divided by splits:
+        for s1,s2 in zip(splits[0:-1],splits[1:]):
+            # Start with all nans
+            cur_data = np.zeros(survey_packet_length)*np.nan
+            # Insert each packets' payload
+            for p in cur_packets[s1:s2]:
+                cur_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
+            # Did we get a full packet? 
+            if np.sum(np.isnan(cur_data)) == 0:
+                # Complete packet!
+                
+                E_data = cur_data[bbr_index_noLCS]
+                B_data = cur_data[bbr_index_noLCS + 4]
+                G_data = cur_data[gps_index].astype('uint8')
 
-        G = decode_GPS_data(G_data)
-        # Print any timestamps we received (should be length 0 or 1)
-        for gg in G:
-            print(datetime.datetime.utcfromtimestamp(gg['timestamp']))
-        
-        d = dict()
-        d['GPS'] = G
-        d['E_data'] = E_data
-        d['B_data'] = B_data
-        # d['G_raw'] = G_data.astype('int')
-        S_data.append(d)
+                G = decode_GPS_data(G_data)
 
-    return S_data
+                # Print any timestamps we received (should be length 0 or 1)
+                for gg in G:
+                    print(datetime.datetime.utcfromtimestamp(gg['timestamp']))
+                
+                d = dict()
+                d['GPS'] = G
+                d['E_data'] = E_data.astype('uint8')
+                d['B_data'] = B_data.astype('uint8')
+                S_data.append(d)
+
+            else:
+                # If not, put the unused packets aside, so we can possibly
+                # combine with packets from other files
+                unused.append(cur_packets[s1:s2])
+
+    # Send it
+    print(f'Recovered {len(S_data)} survey products, leaving {len(unused)} unused packets')
+    return S_data, unused
 
 if __name__ == '__main__':
 
 
-    with open('packets.pkl','rb') as f:
+    with open('packets_158-8490-408.pkl','rb') as f:
         packets = pickle.load(f)
 
-    S_data = decode_survey_data(packets)
+    S_data, unused = decode_survey_data(packets)
 
     with open("survey_data.pkl",'wb') as f:
         pickle.dump(S_data, f)
