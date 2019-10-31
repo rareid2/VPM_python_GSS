@@ -1,6 +1,6 @@
 import numpy as np
 import pickle
-
+import datetime
 
 
 def decode_status(packets):
@@ -76,6 +76,7 @@ def decode_status(packets):
         mem_percent_full = 100.*(bytes_in_memory)/(128.*1024*1024);
 
         nice_str = '---- System Status:  ----\n' +\
+                'Packet received at:\t%s\n'%(datetime.datetime.utcfromtimestamp(p['header_timestamp'])) +\
                 f'Source:\t\t\t{source}\n' + \
                 f'Uptime:\t\t\t{uptime} Secs\n' +\
                 f'Last Command:\t\t%s '%(''.join('{:02X} '.format(a) for a in prev_command)) +\

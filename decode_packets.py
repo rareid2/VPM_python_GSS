@@ -3,7 +3,7 @@ import pickle
 from scipy.io import loadmat
 import os
 import struct
-
+import datetime
 
 
 
@@ -60,6 +60,9 @@ def decode_packets(data, fname=None):
 
     CTCSS_HEADER_LEN = 26
 
+    leap_seconds = 18  # GPS time does not account for leap seconds; as of ~2019, GPS leads UTC by 18 seconds.
+    reference_date = datetime.datetime(1980,1,6,0,0, tzinfo=datetime.timezone.utc) - datetime.timedelta(seconds=leap_seconds)
+
 
     # Find all packet start indices
     p_inds_pre_escape = np.array(sorted(np.where(data==0x7E)))
@@ -70,6 +73,7 @@ def decode_packets(data, fname=None):
     print(f"found {len(p_start_inds)} valid packets")
     # Escape characters, and move packets into a list (since their length now varies)
     packets = [];
+    checksum_failure_counter = 0
 
     # print(p_inds_pre_escape.tolist())
     # print(p_length_pre_escape.tolist())
@@ -131,7 +135,8 @@ def decode_packets(data, fname=None):
             checksum = cur_packet[checksum_index]
 
             if (checksum - checksum_calc) != 0:
-                print('invalid checksum at packet # %d'%x)
+                checksum_failure_counter += 1
+                # print('invalid checksum at packet # %d'%x)
                 # print(cur_packet)
 
             # Pack the decoded packet into a dictionary, and add it to the list
@@ -148,7 +153,8 @@ def decode_packets(data, fname=None):
             p['header_ns'] = C_nanoseconds
             p['header_epoch_sec'] = C_epoch_seconds
             p['header_reboots'] = C_reboot_count
-
+            p['header_timestamp'] = (reference_date + datetime.timedelta(seconds=C_epoch_seconds + C_nanoseconds*1e-9)).timestamp()
+                
             packets.append(p)
 
 
@@ -163,6 +169,9 @@ def decode_packets(data, fname=None):
         except:
             print('exception at packet # %d',x)
         
+    if checksum_failure_counter > 0:
+        print(f'{checksum_failure_counter} failed checksums')
+
     return packets
 
 

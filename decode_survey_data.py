@@ -28,6 +28,10 @@ def decode_survey_data(packets):
             GPS:    A dictionary of decoded GPS data, corresponding to the end of
                     the current survey product
     '''
+
+    # leap_seconds = 18  # GPS time does not account for leap seconds; as of ~2019, GPS leads UTC by 18 seconds.
+    # reference_date = datetime.datetime(1980,1,6,0,0, tzinfo=datetime.timezone.utc) - datetime.timedelta(seconds=leap_seconds)
+
     S_packets = list(filter(lambda packet: packet['dtype'] == 'S', packets))
     # Sort by arrival time
     S_packets = sorted(S_packets, key=lambda p: p['header_epoch_sec'] + p['header_ns']*1e-9)
@@ -95,15 +99,21 @@ def decode_survey_data(packets):
                 G = decode_GPS_data(G_data)
 
                 # Print any timestamps we received (should be length 0 or 1)
-                for gg in G:
-                    print(datetime.datetime.utcfromtimestamp(gg['timestamp']))
-                
+                # for gg in G:
+                if G is not None:
+                    print(datetime.datetime.utcfromtimestamp(G[0]['timestamp']))
+
+
                 d = dict()
                 d['GPS'] = G
                 d['E_data'] = E_data.astype('uint8')
                 d['B_data'] = B_data.astype('uint8')
+                # d['header_epoch_sec'] = cur_packets[s1]['header_epoch_sec']
+                d['header_timestamp'] = cur_packets[s1]['header_timestamp']
+                # d['header_timestamp'] = (reference_date + \
+                #     datetime.timedelta(seconds=cur_packets[s1]['header_epoch_sec'] + cur_packets[s1]['header_ns']*1e-9)).timestamp()
                 S_data.append(d)
-
+                print("header: ",datetime.datetime.utcfromtimestamp(d['header_timestamp']))
             else:
                 # If not, put the unused packets aside, so we can possibly
                 # combine with packets from other files
