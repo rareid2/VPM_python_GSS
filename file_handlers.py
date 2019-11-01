@@ -1,6 +1,8 @@
 import netCDF4
-
-    
+import xml.etree.ElementTree as ET
+import xml.dom.minidom as MD
+import numpy as np
+import datetime
 def write_survey_netCDF(data, filename='survey_data.nc'):
     '''
     Author:     Austin Sousa
@@ -80,14 +82,6 @@ def write_survey_netCDF(data, filename='survey_data.nc'):
         latency[i]      = d['GPS'][0]['latency']
 
     f.close()
-
-
-def save_survey_by_hour(data, out_root):
-
-
-
-
-
 
 
 def write_burst_netCDF(data, filename='burst_data.nc'):
@@ -197,6 +191,66 @@ def write_burst_netCDF(data, filename='burst_data.nc'):
     f.close()
 
 
+def write_survey_XML(in_data, filename='survey_data.xml'):
+    ''' Write a list of survey elements to an xml file. '''
+    
+    # Sort by internal timestamp    
+    # in_data = sorted(in_data, key=lambda k: k['GPS'][0]['timestamp'])
+    # Sort by receipt timestamp
+    in_data = sorted(in_data, key=lambda k: k['header_timestamp'])
+
+    d = ET.Element('survey_data')
+    # d.set('creation_date', str(datetime.datetime.now(datetime.timezone.utc).timestamp()))
+    d.set('creation_date', datetime.datetime.now(datetime.timezone.utc).isoformat())
+
+    for entry_data in in_data:
+        entry = ET.SubElement(d, 'survey')
+        E_elem = ET.SubElement(entry, 'E_data')
+        B_elem = ET.SubElement(entry, 'B_data')
+        GPS_elem= ET.SubElement(entry,'GPS')
+        E_elem.text = np.array2string(entry_data['E_data'], max_line_width=1000000000000, separator=',')[1:-2]
+        B_elem.text = np.array2string(entry_data['B_data'], max_line_width=1000000000000, separator=',')[1:-2]
+
+
+        for k, v in entry_data['GPS'][0].items():
+            cur_item = ET.SubElement(GPS_elem,k)
+            cur_item.text = str(v)
+        header_entry = ET.SubElement(GPS_elem,'header_timestamp')
+        header_entry.text = '{0:f}'.format(entry_data['header_timestamp'])
+
+    rough_string = ET.tostring(d, 'utf-8')
+    reparsed = MD.parseString(rough_string).toprettyxml(indent="\t")
+
+    with open(filename, "w") as f:
+        f.write(reparsed)
+
+def read_survey_XML(filename):   
+    ''' Reads survey elements from an xml file. '''
+
+    # Open it
+    with open(filename,'r') as f:
+        tree = ET.parse(f)
+    
+    outs = []
+    
+    # Process all "survey" elements
+    for S in tree.findall('survey'):
+        d = dict()
+        d['E_data'] = np.fromstring(S.find('E_data').text, dtype='uint8', sep=',')
+        d['B_data'] = np.fromstring(S.find('B_data').text, dtype='uint8', sep=',')
+        d['GPS'] = dict()
+        G = S.find('GPS')
+        for el in G:
+            try:
+                d['GPS'][el.tag] = int(el.text)
+            except:
+                d['GPS'][el.tag] = float(el.text)
+        outs.append(d)
+
+    # Return a list of dicts
+    return outs
+
+    
 if __name__ == '__main__':
 
     import os
@@ -204,9 +258,10 @@ if __name__ == '__main__':
     with open("decoded_data.pkl",'rb') as f:
         outs = pickle.load(f)
 
+
     # os.remove('survey_data.nc')
     print("writing survey data")
-    write_survey_netCDF(outs['survey'])
-
-    print("writing burst data")
-    write_burst_netCDF(outs['burst'][0])
+    # write_survey_netCDF(outs['survey'])
+    write_survey_XML(outs['survey'])
+    # print("writing burst data")
+    # write_burst_netCDF(outs['burst'][0])

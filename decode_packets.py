@@ -170,7 +170,7 @@ def decode_packets(data, fname=None):
             print('exception at packet # %d',x)
         
     if checksum_failure_counter > 0:
-        print(f'{checksum_failure_counter} failed checksums')
+        print(f'--------------- {checksum_failure_counter} failed checksums ---------------')
 
     return packets
 

@@ -7,6 +7,7 @@ from decode_status import decode_status
 import matplotlib.pyplot as plt
 import datetime
 
+
 def remove_trailing_nans(arr1d):
     ''' Trims off the trailing NaNs of a vector.'''
     notnans = np.flatnonzero(~np.isnan(arr1d))
@@ -29,21 +30,33 @@ def TD_reassemble(vec):
     re = vec[:len(vec) - (len(vec)%4)].astype('uint8')
     re = np.reshape(re, [int(len(re)/4),4])
     re = np.stack([(re[:,0] + 256*re[:,1]).astype('int16'), (re[:,2] + 256*re[:,3]).astype('int16')],axis=1)
-    re = re.ravel()
+    re = re.ravel().astype('float')
 
+    # Mark off any nans in the output vector
+    out_nan_inds = np.unique(np.floor(np.where(np.isnan(vec))[0]/2).astype('int'))
+    re[out_nan_inds] = np.nan
+
+    # Returns floats, even though our data is 16-bit ints... but this keeps the 'nan' flags present.
     return re
 
 
-    
 def FD_reassemble(vec):
     ''' Rearranges a byte string into 16-bit values (packed as a complex double),
     following time-domain interleaving.
     Untested as of 10/11/2019, but follows the Matlab code! I need some FD data to try it with.
+
+    Added nan mask 10/31/2019, also untested
     '''
     re = vec[:len(vec) - (len(vec)%4)].astype('uint8')
     re = np.reshape(re, [int(len(re)/4),4])
     re = np.stack([(re[:,0] + 256*re[:,1]).astype('int16'), (re[:,2] + 256*re[:,3]).astype('int16')],axis=1)
-    re = re[:,0] + 1j*re[:,1]
+
+    re = re[:,0].astype('float') + 1j*re[:,1].astype('float')
+
+    # Mark off any nans in the output vector.
+    out_nan_inds = np.unique(np.floor(np.where(np.isnan(vec))[0]/4).astype('int'))
+    re[out_nan_inds] = np.nan
+
     return re
 
 
@@ -195,7 +208,6 @@ def FD_reassemble(vec):
 
 
 def decode_burst_data(packets, data_dict):
-    reference_date = datetime.datetime(1980,1,6,0,0,0)
 
     # Select burst packets
     E_packets = list(filter(lambda packet: packet['dtype'] == 'E', packets))
@@ -204,26 +216,26 @@ def decode_burst_data(packets, data_dict):
     I_packets     = list(filter(lambda p: (p['dtype'] == 'I' and chr(p['data'][3])=='B'), packets))
     I_packets     = sorted(I_packets, key = lambda p: p['header_timestamp'])
     burst_packets = list(filter(lambda packet: packet['dtype'] in ['E','B','G'], packets))
-    burst_packets = sorted(burst_packets, key = lambda p: p['header_timestamp'])
+    # burst_packets = sorted(burst_packets, key = lambda p: p['header_timestamp'])
     stats = decode_status(I_packets)
     for s in stats:
         print(s)
 
-    # -------- arrival time debugging plot -------
-    fig, ax = plt.subplots(1,1)
-    taxis = np.arange(len(burst_packets))    
-    tstamps = np.array([p['header_timestamp'] for p in burst_packets])
-    dtypes  = np.array([p['dtype'] for p in burst_packets])
-    ax.plot(taxis[dtypes=='E'], tstamps[dtypes=='E'],'b.', label='E')
-    ax.plot(taxis[dtypes=='B'], tstamps[dtypes=='B'],'r.', label='B')
-    ax.plot(taxis[dtypes=='G'], tstamps[dtypes=='G'],'g.', label='G')
-    ax.hlines([p['header_timestamp'] for p in I_packets], 0, len(burst_packets))
-    ax.legend()
-    ax.set_xlabel('arrival index')
-    ax.set_ylabel('timestamp')
-    plt.show()
-    print(np.unique([p['exp_num'] for p in burst_packets]))
-    # --------------------------------------------
+    # # -------- arrival time debugging plot -------
+    # fig, ax = plt.subplots(1,1)
+    # taxis = np.arange(len(burst_packets))    
+    # tstamps = np.array([p['header_timestamp'] for p in burst_packets])
+    # dtypes  = np.array([p['dtype'] for p in burst_packets])
+    # ax.plot(taxis[dtypes=='E'], tstamps[dtypes=='E'],'b.', label='E')
+    # ax.plot(taxis[dtypes=='B'], tstamps[dtypes=='B'],'r.', label='B')
+    # ax.plot(taxis[dtypes=='G'], tstamps[dtypes=='G'],'g.', label='G')
+    # ax.hlines([p['header_timestamp'] for p in I_packets], 0, len(burst_packets))
+    # ax.legend()
+    # ax.set_xlabel('arrival index')
+    # ax.set_ylabel('timestamp')
+    # plt.show()
+    # print(np.unique([p['exp_num'] for p in burst_packets]))
+    # # --------------------------------------------
 
     # Sort packets into data_dict to combine with previous data
     # for p in (E_packets + B_packets + G_packets):
@@ -255,15 +267,6 @@ def decode_burst_data(packets, data_dict):
         IA_cmd = np.flip(IA['data'][12:15])
         IB_cmd = np.flip(IB['data'][12:15])
 
-        # cmd = np.flip(IA['data'][12:15])
-        # burst_config = decode_burst_command(cmd)
-
-        # # Get burst nPulses -- this is the one key parameter that isn't defined by the burst command...
-        # system_config = np.flip(IA['data'][20:24])
-        # system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
-        # burst_config['burst_pulses'] = int(system_config[16:24],base=2)
-        # print(burst_config)
-
         # Skip any pairs with different burst commands (this might be questionable...)
         if any(IA_cmd != IB_cmd):
             continue
@@ -277,7 +280,7 @@ def decode_burst_data(packets, data_dict):
                 # Ok! Now we have a list of packets, all with a common experiment number, 
                 # in between two status packets, each with have the same burst command.
                 # Ideally, this should be a complete set of burst data. Let's try processing it!
-                # processed = process_burst(packets_in_time_range)
+
                 # Get burst configuration parameters:
                 cmd = np.flip(IA['data'][12:15])
                 burst_config = decode_burst_command(cmd)
@@ -290,12 +293,10 @@ def decode_burst_data(packets, data_dict):
                 print(burst_config)
 
                 processed = process_burst(packets_in_time_range, burst_config)
-
                 completed_bursts.append(processed)
 
-                # fig, ax = plt.subplots(1,1)
-                # ax.plot(processed['B'])
-                # plt.show()
+                # TODO: remove processed packets, return unused packets to be used later
+
 
     return completed_bursts
 
@@ -342,6 +343,8 @@ def process_burst(packets, burst_config):
     for p in G_packets:
         G_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
 
+    with open("raw_as_hell.pkl","wb") as f:
+        pickle.dump(E_data, f)
     # Juggle the 8-bit values around
     if burst_config['TD_FD_SELECT']==1:
         print("Selected time domain")
@@ -369,7 +372,7 @@ def process_burst(packets, burst_config):
 
     return outs
 
-
+# 
             # if len(packets_in_time_range) > 100:
             # print("exp num",e_num,len(list(filter(lambda p: p['header_timestamp'] >= ta and p['header_timestamp'] <= tb, cur_packets))))
             # packet_times = [IP['header_epoch_sec'] + IP['header_ns']*1e-9 for IP in cur_packets]
@@ -437,14 +440,6 @@ def process_burst(packets, burst_config):
     #             # Process data
     #             # Remove processed packets
     #             # Return completed data and unused packets
-
-
-    #         # CURRENT ISSUE (monday nite):
-    #         # It seems like the status and data exp numbers don't line up (dammit)
-    #         # That's probably by design; load up libero and see how you wired it.
-    #         # If so, you'll have to pair shit up by the spacecraft header timestamp, which
-    #         # fucking sucks, but fuck it, it's going to space so you have to fix it.
-
 
 
 if __name__ == '__main__':

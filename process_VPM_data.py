@@ -63,27 +63,31 @@ if len(tlm_files) > 0:
     # packet with its origin filename
 
 
-    # for fname in tlm_files:
-    #     print(fname)
-    #     with open(os.path.join(data_root, fname),'rb') as f:
-    #         cur_data = np.fromfile(f,dtype='uint8')
-    #         # packets = decode_packets(cur_data, fname=fname)
+    for fname in tlm_files:
+        print(fname)
+        with open(os.path.join(data_root, fname),'rb') as f:
+            cur_data = np.fromfile(f,dtype='uint8')
+            # packets = decode_packets(cur_data, fname=fname)
 
-    #         packets.extend(decode_packets(cur_data, fname=fname))
-    #         # # sift out survey data
-    #         # S_data, unused_survey = decode_survey_data(packets)
-    #         # if S_data is not None:
-    #         #     all_S_data.extend(S_data)
-    # with open('packets.pkl','wb') as f:
-    #     pickle.dump(packets, f)
+            packets.extend(decode_packets(cur_data, fname=fname))
+            # # sift out survey data
+            # S_data, unused_survey = decode_survey_data(packets)
+            # if S_data is not None:
+            #     all_S_data.extend(S_data)
+    with open('packets.pkl','wb') as f:
+        pickle.dump(packets, f)
 
     with open('packets.pkl','rb') as f:
         packets = pickle.load(f)
 
     #         # Decode burst data
 
-    # B_data = decode_burst_data(packets, burst_dict)
+    outs = dict()
 
+    print("Decoding burst data")
+    B_data = decode_burst_data(packets, burst_dict)
+
+    outs['burst'] = B_data
     # print(burst_dict.keys())
     # plot_survey_data(all_S_data)
 
@@ -98,12 +102,12 @@ if len(tlm_files) > 0:
     # with open('packets.pkl','wb') as f:
     #     pickle.dump(packets, f)
 
-    # outs = dict()
-    # # Decode any survey data:
-    print("Decoding survey data")
-    S_data, unused_survey = decode_survey_data(packets)
-    plot_survey_data(S_data)
-    outs['survey'] = S_data
+    # # # Decode any survey data:
+    # print("Decoding survey data")
+    # S_data, unused_survey = decode_survey_data(packets)
+    # print(unused_survey)
+    # plot_survey_data(S_data)
+    # outs['survey'] = S_data
 
     # # Decode any burst data:
     # print("Decoding burst data")
@@ -114,8 +118,8 @@ if len(tlm_files) > 0:
     # print("Decoding status messages")
     # stats = decode_status(packets)
     # outs['status'] = stats
-    # with open('decoded_data.pkl','wb') as f:
-    #     pickle.dump(outs,f)
+    with open('decoded_data.pkl','wb') as f:
+        pickle.dump(outs,f)
 
 
     # # Plot that shit
