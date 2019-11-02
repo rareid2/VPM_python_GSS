@@ -6,6 +6,7 @@ from decode_GPS_data import decode_GPS_data
 from decode_status import decode_status
 import matplotlib.pyplot as plt
 import datetime
+import itertools
 
 
 def remove_trailing_nans(arr1d):
@@ -207,7 +208,7 @@ def FD_reassemble(vec):
 #     return out_list
 
 
-def decode_burst_data(packets, data_dict):
+def decode_burst_data(packets):
 
     # Select burst packets
     E_packets = list(filter(lambda packet: packet['dtype'] == 'E', packets))
@@ -216,32 +217,33 @@ def decode_burst_data(packets, data_dict):
     I_packets     = list(filter(lambda p: (p['dtype'] == 'I' and chr(p['data'][3])=='B'), packets))
     I_packets     = sorted(I_packets, key = lambda p: p['header_timestamp'])
     burst_packets = list(filter(lambda packet: packet['dtype'] in ['E','B','G'], packets))
-    # burst_packets = sorted(burst_packets, key = lambda p: p['header_timestamp'])
+    burst_packets = sorted(burst_packets, key = lambda p: p['header_timestamp'])
     stats = decode_status(I_packets)
-    for s in stats:
-        print(s)
+    # for s in stats:
+    #     print(s)
 
-    # # -------- arrival time debugging plot -------
-    # fig, ax = plt.subplots(1,1)
-    # taxis = np.arange(len(burst_packets))    
-    # tstamps = np.array([p['header_timestamp'] for p in burst_packets])
-    # dtypes  = np.array([p['dtype'] for p in burst_packets])
-    # ax.plot(taxis[dtypes=='E'], tstamps[dtypes=='E'],'b.', label='E')
-    # ax.plot(taxis[dtypes=='B'], tstamps[dtypes=='B'],'r.', label='B')
-    # ax.plot(taxis[dtypes=='G'], tstamps[dtypes=='G'],'g.', label='G')
-    # ax.hlines([p['header_timestamp'] for p in I_packets], 0, len(burst_packets))
-    # ax.legend()
-    # ax.set_xlabel('arrival index')
-    # ax.set_ylabel('timestamp')
-    # plt.show()
-    # print(np.unique([p['exp_num'] for p in burst_packets]))
-    # # --------------------------------------------
+    # -------- arrival time debugging plot -------
+    fig, ax = plt.subplots(1,1)
+    taxis = np.arange(len(burst_packets))    
+    tstamps = np.array([p['header_timestamp'] for p in burst_packets])
+    dtypes  = np.array([p['dtype'] for p in burst_packets])
+    ax.plot(taxis[dtypes=='E'], tstamps[dtypes=='E'],'b.', label='E')
+    ax.plot(taxis[dtypes=='B'], tstamps[dtypes=='B'],'r.', label='B')
+    ax.plot(taxis[dtypes=='G'], tstamps[dtypes=='G'],'g.', label='G')
+    ax.hlines([p['header_timestamp'] for p in I_packets], 0, len(burst_packets))
+    ax.legend()
+    ax.set_xlabel('arrival index')
+    ax.set_ylabel('timestamp')
+    plt.show()
+    print(np.unique([p['exp_num'] for p in burst_packets]))
+    # --------------------------------------------
 
     # Sort packets into data_dict to combine with previous data
     # for p in (E_packets + B_packets + G_packets):
-    for p in burst_packets:
-        data_dict[p['exp_num']].append(p)
+    # for p in burst_packets:
+    #     data_dict[p['exp_num']].append(p)
 
+    avail_exp_nums = np.unique([x['exp_num'] for x in burst_packets])
     # You need to put this in the dictionary some time... 
     # data_dict['I'].extend(I_packets)
 
@@ -259,6 +261,7 @@ def decode_burst_data(packets, data_dict):
     # We should get a status message at the beginning and end of each burst.
     # Add 1 second padding on either side for good measure.
     # # for ta,tb in zip(status_times[0:-1] - 1, status_times[1:] + 1, ):
+    print(f'I_packets has length {len(I_packets)} pre-sift')
     for IA, IB in zip(I_packets[0:-1], I_packets[1:]):
         ta = IA['header_timestamp']# - 1
         tb = IB['header_timestamp']# + 1
@@ -270,9 +273,15 @@ def decode_burst_data(packets, data_dict):
         # Skip any pairs with different burst commands (this might be questionable...)
         if any(IA_cmd != IB_cmd):
             continue
-        for e_num in data_dict.keys():
-            
-            packets_in_time_range = list(filter(lambda p: p['header_timestamp'] >= ta and p['header_timestamp'] <= tb, data_dict[e_num]))           
+
+        # for e_num in data_dict.keys():
+        for e_num in avail_exp_nums:
+            filt_inds = [p['header_timestamp'] >= ta and p['header_timestamp'] <= tb for p in burst_packets]
+            packets_in_time_range = list(itertools.compress(burst_packets, filt_inds))
+            # packets_in_time_range = list(filter(lambda p: p['header_timestamp'] >= ta and p['header_timestamp'] <= tb, data_dict[e_num]))           
+            # packets_outside_range = list(filter(lambda p: p['header_timestamp']  < ta or  p['header_timestamp']  > tb, data_dict[e_num]))           
+
+
             if packets_in_time_range:
                 print(f'------ exp num {e_num} ------')
                 print("status packet times:",datetime.datetime.utcfromtimestamp(ta),datetime.datetime.utcfromtimestamp(tb))
@@ -284,7 +293,7 @@ def decode_burst_data(packets, data_dict):
                 # Get burst configuration parameters:
                 cmd = np.flip(IA['data'][12:15])
                 burst_config = decode_burst_command(cmd)
-
+                
                 # Get burst nPulses -- this is the one key parameter that isn't defined by the burst command...
                 system_config = np.flip(IA['data'][20:24])
                 system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
@@ -293,12 +302,21 @@ def decode_burst_data(packets, data_dict):
                 print(burst_config)
 
                 processed = process_burst(packets_in_time_range, burst_config)
+                processed['I'] = [IA, IB]
+                processed['header_timestamp'] = ta
                 completed_bursts.append(processed)
 
-                # TODO: remove processed packets, return unused packets to be used later
+                # Remove processed packets from data_dict
+                burst_packets = list(itertools.compress(burst_packets, np.logical_not(filt_inds)))
+                I_packets.remove(IA)
+                I_packets.remove(IB)
 
-
-    return completed_bursts
+    # print(f'I_packets has length {len(I_packets)}')
+    # tmp = list(filter(lambda p: (p['dtype'] == 'I' and chr(p['data'][3])=='B'), packets))
+    # print(f'original packet list still has {len(tmp)} packets')
+    print(f'{len(burst_packets)} unused packets')
+    unused_packets = burst_packets + I_packets
+    return completed_bursts, unused_packets
 
 def process_burst(packets, burst_config):
     ''' Reassemble burst data, according to info in burst_config.
@@ -371,76 +389,6 @@ def process_burst(packets, burst_config):
     outs['config'] = burst_config
 
     return outs
-
-# 
-            # if len(packets_in_time_range) > 100:
-            # print("exp num",e_num,len(list(filter(lambda p: p['header_timestamp'] >= ta and p['header_timestamp'] <= tb, cur_packets))))
-            # packet_times = [IP['header_epoch_sec'] + IP['header_ns']*1e-9 for IP in cur_packets]
-            # filtered_packets = cur_packets[packet_times > ta and packet_times < tb]
-    #     print("status found at time ",reference_date + datetime.timedelta(seconds=IP['header_epoch_sec']))
-    #     # Loop through all saved experiment numbers:
-    #     status_time = IP['header_epoch_sec'] + IP['header_ns']*1e-9 - 1
-    #     print(status_time)
-    #     for e_num, cur_packets in data_dict.items():
-    #         print(len(list(filter(lambda packet: packet['header_epoch_sec'] + packet['header_ns']*1e-9 >= status_time, cur_packets))))
-
-
-    # Run through the list and look for complete bursts:
-    # for e_num, cur_packets in data_dict.items():
-    #     print(f"analyzing {len(cur_packets)} packets for experiment number {e_num}")
-    #     # Do we have a status packet?
-    #     I_packets = list(filter(lambda p: (p['dtype'] == 'I'), cur_packets))
-    #     if not I_packets:
-    #         print("No echoed command found for exp num",e_num)
-    #     else:
-    #         print("Found echoed burst command for exp num",e_num)
-
-    #         cmd = np.flip(I_packets[0]['data'][12:15])
-    #         burst_config = decode_burst_command(cmd)
-
-    #         # Get burst nPulses -- this is the one key parameter that isn't defined by the burst command...
-    #         system_config = np.flip(I_packets[0]['data'][20:24])
-    #         system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
-    #         burst_config['burst_pulses'] = int(system_config[16:24],base=2)
-
-    #         print(burst_config)
-
-    #         if burst_config['TD_FD_SELECT']==1:
-    #             # Initialize for time domain
-    #             n_samples = 2*burst_config['SAMPLES_ON']*burst_config['burst_pulses'] # how many 8-bit values should we get?
-    #         elif burst_config['TD_FD_SELECT']==0:
-    #             # Initialize for frequency domain
-    #             seg_length = nfft/2/16 # number of FFTs within each "bin"
-    #             n_samples = 2*burst_config['FFTS_ON']*2*seg_length*sum(burst_config['bins'])
-
-    #         E_data = np.zeros(n_samples)*np.nan
-    #         B_data = np.zeros(n_samples)*np.nan
-    #         G_data = np.zeros(180*burst_config['burst_pulses'])*np.nan # this might overrun...
-
-
-    #         print("reassembling E")
-            
-    #         for p in filter(lambda packet: packet['dtype'] == 'E', cur_packets):
-    #             # print(p)
-    #             E_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
-
-    #         print("reassembling B")
-    #         for p in filter(lambda packet: packet['dtype'] == 'B', cur_packets):
-    #             B_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
-
-    #         print("reassembling GPS")
-    #         for p in filter(lambda packet: packet['dtype'] == 'G', cur_packets):
-    #             G_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
-
-    #         # Do we have everything? 
-    #         print(np.sum(np.isnan(E_data)), np.sum(~np.isnan(E_data)))
-    #         if not (any(np.isnan(E_data)) or any(np.isnan(B_data)) or any(np.isnan(G_data))):
-    #             print('Complete burst! Let''s decode it!')
-
-    #             # Process data
-    #             # Remove processed packets
-    #             # Return completed data and unused packets
-
 
 if __name__ == '__main__':
 

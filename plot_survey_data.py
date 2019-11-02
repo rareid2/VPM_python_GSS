@@ -35,20 +35,28 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     E = []
     B = []
     T = []
-    F = np.arange(512)*40000/512;
-    for S in S_data:
+    F = np.arange(512)*40/512;
+    for S in sorted(S_data, key = lambda f: f['GPS'][0]['timestamp']):
         if S['GPS'] is not None:
+            # if S['GPS'][0]['time_status'] != 20:  # Ignore any 
             T.append(S['GPS'][0]['timestamp'])
+            # T.append(S['header_timestamp'])
+            # print(datetime.datetime.utcfromtimestamp(S['GPS'][0]['timestamp']), S['exp_num'], datetime.datetime.utcfromtimestamp(S['header_timestamp']))
         else:
-            T.append(np.NaN)
+            T.append(np.nan)
 
         E.append(S['E_data'])
         B.append(S['B_data'])
 
 
-    E = np.array(E); B = np.array(B); T = np.array(T)
+    E = np.array(E); B = np.array(B); T = np.array(T);
 
+    # Sort by time vector:
+    sort_inds = np.argsort(T)
+    E = E[sort_inds, :]; B = B[sort_inds, :]; T = T[sort_inds];
 
+    # for t in T:
+    #     print(datetime.datetime.utcfromtimestamp(t))
     fig = plt.figure()
     gs = GridSpec(2, 2, width_ratios=[20, 1])
     ax1 = fig.add_subplot(gs[0,0])
@@ -64,36 +72,44 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     # 
     # (This is where we might bring in a real-world calibration factor)
     
-    dates_formatter = mdates.DateFormatter("%m/%d")
 
 
 
     clims = [0,255] #[-80,-40]
     
+    t_edges = np.insert(T, 0, T[0] - 26)
+    dates = [datetime.datetime.utcfromtimestamp(t) for t in t_edges]
+    
+
+
     # Plot E data
-    p1 = ax1.pcolorfast(E.T, vmin=clims[0], vmax=clims[1])
-    p2 = ax2.pcolorfast(B.T, vmin=clims[0], vmax=clims[1])
+    # p1 = ax1.pcolorfast(E.T, vmin=clims[0], vmax=clims[1])
+    p1 = ax1.pcolormesh(dates,F,E.T, vmin=clims[0], vmax=clims[1], shading='flat')
+    # p2 = ax2.pcolorfast(B.T, vmin=clims[0], vmax=clims[1])
+    p2 = ax2.pcolormesh(dates,F,B.T, vmin=clims[0], vmax=clims[1], shading='flat')
     cb = plt.colorbar(p1, cax = cbax)
     cb.set_label('Raw value [0-255]')
 
+    # vertical lines at each edge (kinda nice, but messy for big plots)
+    # g1 = ax1.vlines(dates, 0, 40, linewidth=0.2, alpha=0.5, color='w')
+    # g2 = ax2.vlines(dates, 0, 40, linewidth=0.2, alpha=0.5, color='w')
 
     ax1.set_xticklabels([])
-    ax1.set_yticks([0,128, 256, 384, 512])
-    ax1.set_yticklabels([0,10,20,30,40])
-    ax2.set_yticks([0,128, 256, 384, 512])
-    ax2.set_yticklabels([0,10,20,30,40])
-    formatted_xticklabels = [datetime.datetime.utcfromtimestamp(x).strftime("%H:%M:%S") for x in T]
-    ax2.set_xticklabels(formatted_xticklabels)
+    ax1.set_ylim([0,40])
+    ax2.set_ylim([0,40])
+
+    formatter = mdates.DateFormatter('%H:%M:%S')
+    ax2.xaxis.set_major_formatter(formatter)
     fig.autofmt_xdate()
     ax2.set_xlabel("Time (H:M:S) on \n%s"%datetime.datetime.utcfromtimestamp(T[0]).strftime("%Y-%m-%d"))
 
-    ax1.set_ylabel('E channel\nFrequency [kHz]')
-    ax2.set_ylabel('B channel\nFrequency [kHz]')
-
+    # ax1.set_ylabel('E channel\nFrequency [kHz]')
+    # ax2.set_ylabel('B channel\nFrequency [kHz]')
+    # fig.autofmt_xdate()
     gs.tight_layout(fig)
     
     plt.show()
-    fig.savefig(filename, bbox_inches='tight')
+    # fig.savefig(filename, bbox_inches='tight')
 
 
 

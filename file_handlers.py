@@ -201,7 +201,7 @@ def write_survey_XML(in_data, filename='survey_data.xml'):
 
     d = ET.Element('survey_data')
     # d.set('creation_date', str(datetime.datetime.now(datetime.timezone.utc).timestamp()))
-    d.set('creation_date', datetime.datetime.now(datetime.timezone.utc).isoformat())
+    d.set('file_creation_date', datetime.datetime.now(datetime.timezone.utc).isoformat())
 
     for entry_data in in_data:
         entry = ET.SubElement(d, 'survey')
@@ -250,7 +250,81 @@ def read_survey_XML(filename):
     # Return a list of dicts
     return outs
 
+
+def write_burst_XML(in_data, filename='burst_data.xml'):
+    ''' write a list of burst elements to an xml file. '''
+    in_data = sorted(in_data, key=lambda k: k['header_timestamp'])
+
+    d = ET.Element('burst_data')
+    d.set('file_creation_date', datetime.datetime.now(datetime.timezone.utc).isoformat())
+
+    for entry_data in in_data:
+        entry = ET.SubElement(d, 'burst')
+        entry.set('header_timestamp',datetime.datetime.utcfromtimestamp(entry_data['header_timestamp']).isoformat())
+        cfg = ET.SubElement(entry, 'config')
+        gps = ET.SubElement(entry, 'GPS')
+        for k, v in entry_data['config'].items():
+            cur_item = ET.SubElement(cfg,k)
+            cur_item.text = str(v)
+
+        for g in entry_data['G']:
+            gps_el = ET.SubElement(gps,'gps_entry')
+            for k, v in g.items():
+                cur_item = ET.SubElement(gps_el,k)
+                cur_item.text = str(v)
+
+
+        if entry_data['config']['TD_FD_SELECT']==1:
+            # Time domain
+            E_data_elem = ET.SubElement(entry,'E_data')
+            E_data_elem.set('mode','time domain')
+            E_str = ''.join(['{0:g},'.format(x) for x in entry_data['E']])[0:-1]
+            E_data_elem.text = E_str
+            B_data_elem = ET.SubElement(entry,'B_data')
+            B_data_elem.set('mode','time domain')
+            B_str = ''.join(['{0:g},'.format(x) for x in entry_data['B']])[0:-1]
+            B_data_elem.text = B_str
+        if entry_data['config']['TD_FD_SELECT']==0:
+            # Frequency domain
+            # (write each frequency row as a separate field)
+            pass
+
+    rough_string = ET.tostring(d, 'utf-8')
+    reparsed = MD.parseString(rough_string).toprettyxml(indent="\t")
+
+    with open(filename, "w") as f:
+        f.write(reparsed)
+
+
+
+def read_burst_XML(filename):   
+    ''' Reads burst elements from an xml file. '''
+
+    # Open it
+    with open(filename,'r') as f:
+        tree = ET.parse(f)
     
+    outs = []
+    
+    # Process all "survey" elements
+    for S in tree.findall('burst'):
+        d = dict()
+        d['E_data'] = np.fromstring(S.find('E_data').text, dtype='int16', sep=',')
+        d['B_data'] = np.fromstring(S.find('B_data').text, dtype='int16', sep=',')
+        d['GPS'] = []
+        G = S.findall('GPS')
+
+        for el in G:
+            try:
+                d['GPS'][el.tag] = int(el.text)
+            except:
+                d['GPS'][el.tag] = float(el.text)
+        outs.append(d)
+
+    # Return a list of dicts
+    return outs
+
+
 if __name__ == '__main__':
 
     import os
@@ -260,8 +334,10 @@ if __name__ == '__main__':
 
 
     # os.remove('survey_data.nc')
-    print("writing survey data")
+    # print("writing survey data")
     # write_survey_netCDF(outs['survey'])
-    write_survey_XML(outs['survey'])
-    # print("writing burst data")
+    # write_survey_XML(outs['survey'])
+
+    print("writing burst data")
+    write_burst_XML(outs['burst'])
     # write_burst_netCDF(outs['burst'][0])
