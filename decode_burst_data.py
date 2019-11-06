@@ -61,155 +61,85 @@ def FD_reassemble(vec):
     return re
 
 
-# def decode_burst_data(packets, burst_cmd = None):
+def decode_burst_data_by_experiment_number(packets, burst_cmd = None):
 
-#     out_list = []
+    out_list = []
 
-#     E_packets = list(filter(lambda packet: packet['dtype'] == 'E', packets))
-#     B_packets = list(filter(lambda packet: packet['dtype'] == 'B', packets))
-#     G_packets = list(filter(lambda packet: packet['dtype'] == 'G', packets))
+    # Select burst packets
+    E_packets = list(filter(lambda packet: packet['dtype'] == 'E', packets))
+    B_packets = list(filter(lambda packet: packet['dtype'] == 'B', packets))
+    G_packets = list(filter(lambda packet: packet['dtype'] == 'G', packets))
+    I_packets     = list(filter(lambda p: (p['dtype'] == 'I' and chr(p['data'][3])=='B'), packets))
+    I_packets     = sorted(I_packets, key = lambda p: p['header_timestamp'])
+    burst_packets = list(filter(lambda packet: packet['dtype'] in ['E','B','G'], packets))
+    burst_packets = sorted(burst_packets, key = lambda p: p['header_timestamp'])
+    stats = decode_status(I_packets)
+    # Get all unique experiment numbers for this set of packets 
+    # (chances are real good that we'll only have 1 or 2 unique numbers)
+    avail_exp_nums = np.unique([x['exp_num'] for x in E_packets + B_packets])
+    print("available burst experiment numbers:",avail_exp_nums)
+    # e_num = scipy.stats.mode(avail_exp_nums[0])[0][0] # Pick the one we have the most of
 
-#     # Get all unique experiment numbers for this set of packets 
-#     # (chances are real good that we'll only have 1 or 2 unique numbers)
-#     avail_exp_nums = np.unique([x['exp_num'] for x in E_packets + B_packets])
-#     print("available burst experiment numbers:",avail_exp_nums)
-#     # e_num = scipy.stats.mode(avail_exp_nums[0])[0][0] # Pick the one we have the most of
-#     for e_num in avail_exp_nums:
-        
-#         outs = dict() # The output container
+    completed_bursts = []
 
-#         # Do we have any corresponding status packets?
-#         # These are tagged with p['data'][3] == 'B', and are requested at 
-#         # either end of a burst. 
-#         I_packets = list(filter(lambda p: (p['dtype'] == 'I' and chr(p['data'][3])=='B'), packets))
-        
-#         # Grab the burst command from the first status packet.
-#         if I_packets:
-#             print("Using echoed burst command")
-#             cmd = np.flip(I_packets[0]['data'][12:15])
-#             burst_config = decode_burst_command(cmd)
+    outs = dict() # The output container
 
-#             # Get burst nPulses -- this is the one key parameter that isn't defined by the burst command...
-#             system_config = np.flip(I_packets[0]['data'][20:24])
-#             system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
-#             burst_config['burst_pulses'] = int(system_config[16:24],base=2)
+    # Do we have any corresponding status packets?
+    # These are tagged with p['data'][3] == 'B', and are requested at 
+    # either end of a burst. 
+    
+    
+    # Grab the burst command from the first status packets
 
-#         else:
-#             print("Using manually-assigned burst command")
-#             burst_config = decode_burst_command([96,0,0])
-#             burst_config['burst_pulses'] = 1;
+    # if I_packets:
+    #     print("Using command from status packet")
+    #     cmd = np.flip(I_packets[0]['data'][12:15])
+    #     burst_config = decode_burst_command(cmd)
 
-#         # Reassemble bytestreams using packet metadata:
+    #     # Get burst nPulses -- this is the one key parameter that isn't defined by the burst command...
+    #     system_config = np.flip(I_packets[0]['data'][20:24])
+    #     system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
+    #     burst_config['burst_pulses'] = int(system_config[16:24],base=2)
 
-#         # Loop through all packets to get the maximum data index:        
-#         max_E_ind = max([p['start_ind'] + p['bytecount'] for p in filter(lambda packet: packet['exp_num'] == e_num, E_packets)])
-#         max_B_ind = max([p['start_ind'] + p['bytecount'] for p in filter(lambda packet: packet['exp_num'] == e_num, B_packets)])
-#         # max_G_ind = max([p['start_ind'] + p['bytecount'] for p in filter(lambda packet: packet['exp_num'] == e_num, G_packets)])
-        
-#         print("max E ind is:", max_E_ind, "max B ind is:", max_B_ind)
-        
-#         # Preallocate some space; we'll truncate it later.
-#         E_data = np.empty(max_E_ind)
-#         B_data = np.empty(max_B_ind)
-#         G_data = np.empty(512*len(G_packets))
-#         E_data[:] = np.nan; B_data[:] = np.nan; G_data[:] = np.nan;
+    # else:
+    #     print("Using manually-assigned burst command")
+    #     burst_config = decode_burst_command([96,0,0])
+    #     burst_config['burst_pulses'] = 1;
 
-#         print("reassembling E")
+        # Get burst nPulses -- this is the one key parameter that isn't defined by the burst command...
+    system_config = np.flip(I_packets[0]['data'][20:24])
+    system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
+    pulses = int(system_config[16:24],base=2)
+    print('pulses:', pulses)
 
+    for e_num in avail_exp_nums:
+        print("processing experiment number", e_num)
+        filt_inds = [p['exp_num']==e_num for p in burst_packets]
+        current_packets = list(itertools.compress(burst_packets, filt_inds))
 
-        
-#         for p in filter(lambda packet: packet['exp_num'] == e_num, E_packets):
-            
-#             E_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
-            
-#         print("reassembling B")
-#         for p in filter(lambda packet: packet['exp_num'] == e_num, B_packets):
-#             B_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
+        current_packets = list(filter(lambda p: p['exp_num']==e_num, burst_packets))
+        cur_G_packets   = list(filter(lambda p: p['dtype']=='G', current_packets))
 
-#         print("reassembling GPS")
-#         for p in filter(lambda packet: packet['exp_num'] == e_num, G_packets):
-#             G_data[p['start_ind']:(p['start_ind'] + p['bytecount'])] = p['data']
+        # Burst command is echo'ed at the top of each GPS packet:
+        for g in cur_G_packets:
+            cmd = np.flip(g['data'][0:3])
+            burst_config = decode_burst_command(cmd)
+            burst_config['burst_pulses'] = pulses
+            print(cmd)
 
-
-#         # Truncate trailing nans
-#         # casting to uint8 is desirable, but also nukes the other nans... Eh.
-#         E_data = remove_trailing_nans(E_data)#.astype('uint8')
-#         B_data = remove_trailing_nans(B_data)#.astype('uint8')
-#         G_data = remove_trailing_nans(G_data)#.astype('uint8')
-#         # print(f"E has {np.sum(np.isnan(E_data))} nans")
-#         # print(f"B has {np.sum(np.isnan(B_data))} nans")
-#         # Juggle the 8-bit values around
-#         if burst_config['TD_FD_SELECT']==1:
-#             print("Selected time domain")
-#             E = TD_reassemble(E_data)
-#             B = TD_reassemble(B_data)
+        # Remove processed packets from data_dict
+        # burst_packets = list(itertools.compress(burst_packets, np.logical_not(filt_inds)))
 
 
-#         if burst_config['TD_FD_SELECT']==0:
-#             print("seleced frequency domain")
-#             E = FD_reassemble(E_data)
-#             B = FD_reassemble(B_data)
-
-
-#         # Decode any GPS data we might have
-#         G = decode_GPS_data(G_data)
-#         # print(G)
-
-#         outs['E'] = E.astype('int16')
-#         outs['B'] = B.astype('int16')
-#         outs['G'] = G
-#         outs['config'] = burst_config
-
-#         # Generate time (and frequency) axis vectors for convenience
-#         system_delay_samps_TD = 73;    
-#         system_delay_samps_FD = 200;
-
-#         # Construct the appropriate time and frequency axes
-#         if burst_config['TD_FD_SELECT']==1:
-#             # Time domain burst
-
-#             # Get the equivalent sample rate, if decimated
-#             if burst_config['DECIMATE_ON']==1:
-#                 fs_equiv = 80000./burst_config['DECIMATION_FACTOR']
-#             else:
-#                 fs_equiv = 80000.
-                
-#             # Seconds from the start of the burst
-#             t_axis = np.array([(np.arange(burst_config['SAMPLES_ON']))/fs_equiv +\
-#                           (k*(burst_config['SAMPLES_ON'] + burst_config['SAMPLES_OFF']))/fs_equiv for k in range(burst_config['burst_pulses'])]).ravel()
-
-#             # Add in system delay 
-#             t_axis += system_delay_samps_TD/fs_equiv        
-#             outs['t_axis'] = t_axis
-
-#         if burst_config['TD_FD_SELECT']==0:
-
-#             # Frequency-domain time axis
-#             nfft = 1024
-#             scale_factor = nfft/2./80000.
-#             t_axis = np.array([(np.arange(burst_config['FFTS_ON']))/scale_factor +\
-#                           (k*(burst_config['FFTS_ON'] + burst_config['FFTS_OFF']))/scale_factor for k in range(burst_config['burst_pulses'])]).ravel()
-            
-#             t_axis += system_delay_samps_FD/fs_equiv        
-#             outs['t_axis'] = t_axis
-
-#             # Frequency axis
-#             f_axis = []
-#             seg_length = nfft/2/16
-#             for i, v in enumerate(burst_config['BINS']):
-#                 if v=='1':
-#                     f_axis.append([np.arange(seg_length)+seg_length*i])
-
-#             f_axis = (40000/(nfft/2))*np.array(f_axis).ravel()
-
-#             outs['f_axis'] = f_axis
-
-#         out_list.append(outs)
-#     return out_list
+        processed = process_burst(current_packets, burst_config)
+        completed_bursts.append(processed)
+        burst_packets = list(itertools.compress(burst_packets, np.logical_not(filt_inds)))
+        print("remaining packets:", len(burst_packets))
+    unused_packets = burst_packets
+    return completed_bursts, unused_packets
 
 
 def decode_burst_data(packets):
-
     # Select burst packets
     E_packets = list(filter(lambda packet: packet['dtype'] == 'E', packets))
     B_packets = list(filter(lambda packet: packet['dtype'] == 'B', packets))
@@ -263,8 +193,9 @@ def decode_burst_data(packets):
     # # for ta,tb in zip(status_times[0:-1] - 1, status_times[1:] + 1, ):
     print(f'I_packets has length {len(I_packets)} pre-sift')
     for IA, IB in zip(I_packets[0:-1], I_packets[1:]):
-        ta = IA['header_timestamp']# - 1
-        tb = IB['header_timestamp']# + 1
+        ta = IA['header_timestamp'] - 1.5
+        tb = IB['header_timestamp'] + 1.5
+        print(ta, tb)
         
     #     # Let's confirm that the burst command is the same within each status packet:        
         IA_cmd = np.flip(IA['data'][12:15])
@@ -276,24 +207,36 @@ def decode_burst_data(packets):
 
         # for e_num in data_dict.keys():
         for e_num in avail_exp_nums:
+
             filt_inds = [p['header_timestamp'] >= ta and p['header_timestamp'] <= tb for p in burst_packets]
             packets_in_time_range = list(itertools.compress(burst_packets, filt_inds))
+
+
+            packets_with_matching_e_num = list(filter(lambda p: p['exp_num']==e_num, burst_packets))
+            print(f"packets in time range: {len(packets_in_time_range)}; packets with exp_num {e_num}: {len(packets_with_matching_e_num)}")
             # packets_in_time_range = list(filter(lambda p: p['header_timestamp'] >= ta and p['header_timestamp'] <= tb, data_dict[e_num]))           
             # packets_outside_range = list(filter(lambda p: p['header_timestamp']  < ta or  p['header_timestamp']  > tb, data_dict[e_num]))           
 
 
-            if packets_in_time_range:
+            if len(packets_in_time_range) > 100:
                 print(f'------ exp num {e_num} ------')
                 print("status packet times:",datetime.datetime.utcfromtimestamp(ta),datetime.datetime.utcfromtimestamp(tb))
 
                 # Ok! Now we have a list of packets, all with a common experiment number, 
                 # in between two status packets, each with have the same burst command.
                 # Ideally, this should be a complete set of burst data. Let's try processing it!
+                
+                for gg in filter(lambda packet: packet['dtype'] == 'G', packets_in_time_range):
+                    if gg['start_ind'] ==0:
+                        cmd_gps = np.flip(gg['data'][0:3])
+                        if (IA_cmd != cmd_gps).any():
+                            print("GPS and status command echo mismatch")
 
                 # Get burst configuration parameters:
                 cmd = np.flip(IA['data'][12:15])
                 burst_config = decode_burst_command(cmd)
                 
+
                 # Get burst nPulses -- this is the one key parameter that isn't defined by the burst command...
                 system_config = np.flip(IA['data'][20:24])
                 system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
@@ -336,7 +279,7 @@ def process_burst(packets, burst_config):
         # Initialize for frequency domain
         seg_length = 32 #1024/2/16 # number of FFTs within each "bin"
         print("seg length:", seg_length)
-        n_samples = int(2*2*(burst_config['FFTS_ON'])*2*seg_length*burst_config['BINS'].count('1'))
+        n_samples = int(2*(burst_config['FFTS_ON'])*2*seg_length*burst_config['BINS'].count('1'))
 
 
     # # Loop through all packets to get the maximum data index:        
@@ -380,8 +323,8 @@ def process_burst(packets, burst_config):
     print(f'expected {int(n_samples/2)} samples')
 
     # Decode any GPS data we might have
+    # print(' '.join([hex(int(j)) for j in G_data[0:24]]))
     G = decode_GPS_data(G_data)
-    print(G)
     outs = dict()
     outs['E'] = E
     outs['B'] = B
@@ -395,12 +338,14 @@ if __name__ == '__main__':
     with open('packets.pkl','rb') as f:
         packets = pickle.load(f)
 
-
-    stats = decode_status(packets)
-    for s in stats:
-        print(s)
-    outs = decode_burst_data(packets)
-    print(outs)
+    # stats = decode_status(packets)
+    # for s in stats:
+    #     print(s)
+    burst, unused = decode_burst_data(packets)
+    outs = dict()
+    outs['burst'] = burst
+    with open('decoded_data.pkl','wb') as f:
+        pickle.dump(outs,f)
 
     # with open('burst_raw.pkl','wb') as f:
     #     pickle.dump(outs, f)

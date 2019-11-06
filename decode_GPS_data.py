@@ -35,8 +35,8 @@ def decode_GPS_data(data):
     if len(pos_inds)==0 and len(vel_inds)==0:
         print("No GPS logs found")
         return []
-    # else:
-        # print(f'found {len(pos_inds)} position logs and {len(vel_inds)} velocity logs')
+    else:
+        print(f'found {len(pos_inds)} position logs and {len(vel_inds)} velocity logs')
         # In survey mode, there should never be more than 1 position and 1 velocity entry
         
 

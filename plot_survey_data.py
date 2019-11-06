@@ -52,11 +52,12 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     E = np.array(E); B = np.array(B); T = np.array(T);
 
     # Sort by time vector:
+    # (This may cause issues if the GPS card is off, since everything restarts at 1/6/1980 without a lock.
+    # The spacecraft timestamp will be accurate enough when bursts are NOT being taken, but things will get
+    # weird during a burst, since the data will have sat in the payload SRAM for a bit before receipt.)
     sort_inds = np.argsort(T)
     E = E[sort_inds, :]; B = B[sort_inds, :]; T = T[sort_inds];
 
-    # for t in T:
-    #     print(datetime.datetime.utcfromtimestamp(t))
     fig = plt.figure()
     gs = GridSpec(2, 2, width_ratios=[20, 1])
     ax1 = fig.add_subplot(gs[0,0])
@@ -103,8 +104,8 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     fig.autofmt_xdate()
     ax2.set_xlabel("Time (H:M:S) on \n%s"%datetime.datetime.utcfromtimestamp(T[0]).strftime("%Y-%m-%d"))
 
-    # ax1.set_ylabel('E channel\nFrequency [kHz]')
-    # ax2.set_ylabel('B channel\nFrequency [kHz]')
+    ax1.set_ylabel('E channel\nFrequency [kHz]')
+    ax2.set_ylabel('B channel\nFrequency [kHz]')
     # fig.autofmt_xdate()
     gs.tight_layout(fig)
     

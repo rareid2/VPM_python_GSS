@@ -60,35 +60,34 @@ if len(tlm_files) > 0:
     # Decode packets from each TLM file, and tag the decoded
     # packet with its origin filename
 
-    # for fname in tlm_files:
-    #     print(fname)
-    #     fpath = os.path.join(data_root, fname)
-    #     with open(fpath,'rb') as f:
-    #         cur_data = np.fromfile(f,dtype='uint8')
-    #         # packets = decode_packets(cur_data, fname=fname)
+    for fname in tlm_files:
+        print(fname)
+        fpath = os.path.join(data_root, fname)
+        with open(fpath,'rb') as f:
+            cur_data = np.fromfile(f,dtype='uint8')
+            # packets = decode_packets(cur_data, fname=fname)
 
-    #         packets.extend(decode_packets(cur_data, fname=fname))
+            packets.extend(decode_packets(cur_data, fname=fname))
 
-    #         # shutil.move(fpath, os.path.join(processed_dir,fname))
+            # Move the original file to the "processed" directory
+            # shutil.move(fpath, os.path.join(processed_dir,fname))
 
-
-    #         # # sift out survey data
-    #         # S_data, unused_survey = decode_survey_data(packets)
-    #         # if S_data is not None:
-    #         #     all_S_data.extend(S_data)
-    # with open('packets.pkl','wb') as f:
-    #     pickle.dump(packets, f)
     
-    # Load any previously-unused packets, and add them to the list
-    if os.path.exists(in_progress_file):
-        print("loading previous unused data")
-        with open(in_progress_file,'rb') as f:
-            packets_in_progress = pickle.load(f)    
-        packets.extend(packets_in_progress)
+    # # Load any previously-unused packets, and add them to the list
+    # if os.path.exists(in_progress_file):
+    #     print("loading previous unused data")
+    #     with open(in_progress_file,'rb') as f:
+    #         packets_in_progress = pickle.load(f)    
+    #     packets.extend(packets_in_progress)
+
+
+    with open('packets.pkl','wb') as f:
+        pickle.dump(packets, f)
 
 
     with open('packets.pkl','rb') as f:
         packets = pickle.load(f)
+
 
     outs = dict()
 
@@ -99,6 +98,11 @@ if len(tlm_files) > 0:
     print("Decoding survey data")
     S_data, unused_survey = decode_survey_data(packets)
     outs['survey'] = S_data
+
+    print("Decoding status messages")
+    stats = decode_status(packets)
+    outs['status'] = stats
+
 
     if os.path.exists(in_progress_file):
         os.remove(in_progress_file)
@@ -111,10 +115,6 @@ if len(tlm_files) > 0:
             pickle.dump(unused, f)
 
 
-    # # Decode any status messages:
-    print("Decoding status messages")
-    stats = decode_status(packets)
-    outs['status'] = stats
     with open('decoded_data.pkl','wb') as f:
         pickle.dump(outs,f)
 

@@ -238,13 +238,14 @@ def read_survey_XML(filename):
         d = dict()
         d['E_data'] = np.fromstring(S.find('E_data').text, dtype='uint8', sep=',')
         d['B_data'] = np.fromstring(S.find('B_data').text, dtype='uint8', sep=',')
-        d['GPS'] = dict()
+        d['GPS'] = []
+        d['GPS'].append(dict())
         G = S.find('GPS')
         for el in G:
             try:
-                d['GPS'][el.tag] = int(el.text)
+                d['GPS'][0][el.tag] = int(el.text)
             except:
-                d['GPS'][el.tag] = float(el.text)
+                d['GPS'][0][el.tag] = float(el.text)
         outs.append(d)
 
     # Return a list of dicts
@@ -284,10 +285,29 @@ def write_burst_XML(in_data, filename='burst_data.xml'):
             B_data_elem.set('mode','time domain')
             B_str = ''.join(['{0:g},'.format(x) for x in entry_data['B']])[0:-1]
             B_data_elem.text = B_str
+
         if entry_data['config']['TD_FD_SELECT']==0:
             # Frequency domain
-            # (write each frequency row as a separate field)
-            pass
+            E_data_elem = ET.SubElement(entry,'E_data')
+            E_data_elem.set('mode','frequency domain')
+            E_real = ET.SubElement(E_data_elem,'real')
+            E_imag = ET.SubElement(E_data_elem,'imag')
+
+            E_str = ''.join(['{0:g},'.format(np.real(x)) for x in entry_data['E']])[0:-1]
+            E_real.text = E_str
+            E_str = ''.join(['{0:g},'.format(np.imag(x)) for x in entry_data['E']])[0:-1]
+            E_imag.text = E_str
+
+            B_data_elem = ET.SubElement(entry,'B_data')
+            B_data_elem.set('mode','frequency domain')
+            B_real = ET.SubElement(B_data_elem,'real')
+            B_imag = ET.SubElement(B_data_elem,'imag')
+
+            B_str = ''.join(['{0:g},'.format(np.real(x)) for x in entry_data['B']])[0:-1]
+            B_real.text = B_str
+            B_str = ''.join(['{0:g},'.format(np.imag(x)) for x in entry_data['B']])[0:-1]
+            B_imag.text = B_str
+
 
     rough_string = ET.tostring(d, 'utf-8')
     reparsed = MD.parseString(rough_string).toprettyxml(indent="\t")
@@ -309,8 +329,15 @@ def read_burst_XML(filename):
     # Process all "survey" elements
     for S in tree.findall('burst'):
         d = dict()
-        d['E_data'] = np.fromstring(S.find('E_data').text, dtype='int16', sep=',')
-        d['B_data'] = np.fromstring(S.find('B_data').text, dtype='int16', sep=',')
+        ER = np.fromstring(S.find('E_data').find('real').text, dtype='int16', sep=',')
+        EI = np.fromstring(S.find('E_data').find('imag').text, dtype='int16', sep=',')
+        d['E_data'] = ER + 1j*EI
+        
+        BR = np.fromstring(S.find('B_data').find('real').text, dtype='int16', sep=',')
+        BI = np.fromstring(S.find('B_data').find('imag').text, dtype='int16', sep=',')
+        d['B_data'] = BR + 1j*BI
+
+
         d['GPS'] = []
         G = S.findall('GPS')
 
