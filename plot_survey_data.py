@@ -5,6 +5,7 @@ import datetime
 from matplotlib.gridspec import GridSpec
 import matplotlib.dates as mdates
 import scipy.signal
+from parula_colormap import parula
 
 
 
@@ -81,13 +82,14 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     t_edges = np.insert(T, 0, T[0] - 26)
     dates = [datetime.datetime.utcfromtimestamp(t) for t in t_edges]
     
-
+    # colormap -- parula is Matlab; also try plt.cm.jet or plt.cm.viridis
+    cm = parula();
 
     # Plot E data
     # p1 = ax1.pcolorfast(E.T, vmin=clims[0], vmax=clims[1])
-    p1 = ax1.pcolormesh(dates,F,E.T, vmin=clims[0], vmax=clims[1], shading='flat')
+    p1 = ax1.pcolormesh(dates,F,E.T, vmin=clims[0], vmax=clims[1], shading='flat', cmap = cm);
     # p2 = ax2.pcolorfast(B.T, vmin=clims[0], vmax=clims[1])
-    p2 = ax2.pcolormesh(dates,F,B.T, vmin=clims[0], vmax=clims[1], shading='flat')
+    p2 = ax2.pcolormesh(dates,F,B.T, vmin=clims[0], vmax=clims[1], shading='flat', cmap = cm);
     cb = plt.colorbar(p1, cax = cbax)
     cb.set_label('Raw value [0-255]')
 
@@ -110,7 +112,7 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     gs.tight_layout(fig)
     
     plt.show()
-    # fig.savefig(filename, bbox_inches='tight')
+    fig.savefig(filename, bbox_inches='tight')
 
 
 

@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 
 def decode_burst_command(cmd):
     '''
@@ -28,11 +29,13 @@ def decode_burst_command(cmd):
                       bins along the frequency axis (nominally 512 bins, spanning 0 to 40 kHz).
                       A '1' enables data collection for this bin.
     '''
-    print(cmd)
+    logger = logging.getLogger(__name__)
+
+    logger.debug(f'decoding command: {cmd}')
     cmd_str = ''.join("{0:8b}".format(x) for x in cmd).replace(' ','0')
     
     if not cmd_str[0:2]=='01':
-        print('invalid DPU command')
+        logger.warning(f'invalid DPU command: {cmd}')
 
     burst_cmd = dict()
     burst_cmd['str'] = cmd_str

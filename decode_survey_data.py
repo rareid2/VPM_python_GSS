@@ -2,6 +2,7 @@ import numpy as np
 import pickle
 import datetime
 import matplotlib.pyplot as plt
+import logging
 
 from decode_packets import find_sequence
 from decode_GPS_data import decode_GPS_data
@@ -31,14 +32,15 @@ def decode_survey_data(packets):
 
     # leap_seconds = 18  # GPS time does not account for leap seconds; as of ~2019, GPS leads UTC by 18 seconds.
     # reference_date = datetime.datetime(1980,1,6,0,0, tzinfo=datetime.timezone.utc) - datetime.timedelta(seconds=leap_seconds)
+    logger = logging.getLogger(__name__)
 
     S_packets = list(filter(lambda packet: packet['dtype'] == 'S', packets))
     # Sort by arrival time
     S_packets = sorted(S_packets, key=lambda p: p['header_epoch_sec'] + p['header_ns']*1e-9)
 
     if len(S_packets) == 0:
-        print("no survey data present!")
-        return None, None
+        logger.info("no survey data present!")
+        return [], []
 
     # These will roll over every 256 survey columns... need to deal with that
     # in this search. For now, just assume they're unique
@@ -48,7 +50,7 @@ def decode_survey_data(packets):
     # plt.show()
     e_nums = np.unique([x['exp_num'] for x in S_packets])
 
-    # print(e_nums)
+    logging.debug(f'available survey experiment numbers: {e_nums}')
 
     survey_packet_length = 1212
 
@@ -120,7 +122,7 @@ def decode_survey_data(packets):
                 unused.append(cur_packets[s1:s2])
 
     # Send it
-    print(f'Recovered {len(S_data)} survey products, leaving {len(unused)} unused packets')
+    logger.info(f'Recovered {len(S_data)} survey products, leaving {len(unused)} unused packets')
     return S_data, unused
 
 if __name__ == '__main__':

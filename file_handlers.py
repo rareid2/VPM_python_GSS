@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom as MD
 import numpy as np
 import datetime
+
 def write_survey_netCDF(data, filename='survey_data.nc'):
     '''
     Author:     Austin Sousa

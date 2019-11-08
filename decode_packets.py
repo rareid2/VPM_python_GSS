@@ -4,7 +4,7 @@ from scipy.io import loadmat
 import os
 import struct
 import datetime
-
+import logging
 
 
 def find_sequence(arr,seq):
@@ -47,6 +47,7 @@ def decode_packets(data, fname=None):
         verify:             received checksum - calculated checksum.
                             Should be all zeros unless we have some corruption happening.
     '''
+    logger = logging.getLogger(__name__)
 
     # Packet indices and lengths (set in payload firmware)
     PACKET_SIZE = 512
@@ -70,14 +71,11 @@ def decode_packets(data, fname=None):
 
     # Select only the valid packet start indices
     p_start_inds = p_inds_pre_escape[np.where(p_length_pre_escape == (PACKET_SIZE - 1))]
-    print(f"found {len(p_start_inds)} valid packets")
+    logger.info(f"found {len(p_start_inds)} valid packets")
+    
     # Escape characters, and move packets into a list (since their length now varies)
     packets = [];
     checksum_failure_counter = 0
-
-    # print(p_inds_pre_escape.tolist())
-    # print(p_length_pre_escape.tolist())
-    # vhex = np.vectorize(hex)
 
     # for k in np.arange(-6, 20):
     for x, pind in enumerate(p_start_inds):
@@ -95,8 +93,7 @@ def decode_packets(data, fname=None):
             C_epoch_seconds = struct.unpack('>I', ctcss_header[8:12].tobytes())[0]
             C_nanoseconds   = struct.unpack('>I', ctcss_header[12:16].tobytes())[0]
             C_reboot_count  = struct.unpack('>H', ctcss_header[16:18].tobytes())[0]
-            # print(C_packet_length)
-            # print(C_nanoseconds*1e-6)
+
 
             # Check if the bytecount or checksum fields were escaped
             check_escaped = (cur_packet[PACKET_SIZE - 2]!=0)*1
@@ -105,10 +102,6 @@ def decode_packets(data, fname=None):
             # Calculate the checksum (on the unescaped data):
             checksum_calc = sum(cur_packet[2:CHECKSUM_INDEX - 1])%256
 
-            # Let's look at the 7D values and see if any of 'em are actually escaped:
-            # for e in find_sequence(cur_packet,np.array([0x7D])): # [7D, 5E] -> 7E
-                # print(e)
-                # print("7D at:", ['{0:2X}'.format(x) for x in cur_packet[e-1:e+5]])
             # Un-escape the packet (Destructive)
             esc1_inds = find_sequence(cur_packet,np.array([0x7D, 0x5E])) # [7D, 5E] -> 7E
             cur_packet[esc1_inds] =  0x7E
@@ -158,19 +151,11 @@ def decode_packets(data, fname=None):
             packets.append(p)
 
 
-            # if experiment_number==125:
-            #     # print("HEY")
-            #     print(esc1_inds, esc2_inds)
-
-            #     print("pre-escape",['{0:X}'.format(x) for x in data[pind + EXPERIMENT_INDEX-1:pind+EXPERIMENT_INDEX + 3]])
-            #     print("post-escape",['{0:X}'.format(x) for x in cur_packet[EXPERIMENT_INDEX-1:EXPERIMENT_INDEX + 3]])
-            # # print(p['bytecount'] - len(p['data']))
-
         except:
-            print('exception at packet # %d',x)
+            logger.warning('exception at packet # %d',x)
         
     if checksum_failure_counter > 0:
-        print(f'--------------- {checksum_failure_counter} failed checksums ---------------')
+        logger.warning(f'--------------- {checksum_failure_counter} failed checksums ---------------')
 
     return packets
 
@@ -192,7 +177,7 @@ if __name__ == '__main__':
 
 
 
-    data_root = 'Data/ditl_cal'
+    data_root = 'Data/matlab/decimation_tests_2014/'# 'Data/ditl_cal'
     d = os.listdir(data_root)
     tlm_files = sorted([x for x in d if x.endswith('.tlm')])
 

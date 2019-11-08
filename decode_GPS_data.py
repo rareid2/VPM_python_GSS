@@ -3,6 +3,7 @@ import pickle
 import datetime
 import struct
 from decode_packets import find_sequence
+import logging
 
 def decode_GPS_data(data):
     '''
@@ -26,6 +27,8 @@ def decode_GPS_data(data):
                     the current survey product
     '''
 
+    logger = logging.getLogger(__name__)
+
     # GPS time is delivered as: weeks from reference date, plus seconds into the week.
     leap_seconds = 18  # GPS time does not account for leap seconds; as of ~2019, GPS leads UTC by 18 seconds.
     reference_date = datetime.datetime(1980,1,6,0,0, tzinfo=datetime.timezone.utc) - datetime.timedelta(seconds=leap_seconds)
@@ -33,26 +36,21 @@ def decode_GPS_data(data):
     vel_inds = find_sequence(data,np.array([0xAA, 0x44, 0x12, 0x1C, 0x63]))
 
     if len(pos_inds)==0 and len(vel_inds)==0:
-        print("No GPS logs found")
+        logger.debug("No GPS logs found")
         return []
     else:
-        print(f'found {len(pos_inds)} position logs and {len(vel_inds)} velocity logs')
+        logger.debug(f'found {len(pos_inds)} position logs and {len(vel_inds)} velocity logs')
         # In survey mode, there should never be more than 1 position and 1 velocity entry
         
-
-
-    # print(['{0:02X}'.format(x) for x in data.astype('int')])
-
     # See page 47 of the OEM7 Firmware Reference Manual for the header reference indices,
     # and page 443 for the BESTPOS / BESTVEL indices
     header_len = 28;
-
 
     data = data.astype('uint8')
     
     
     if len(pos_inds)!=len(vel_inds):
-        print("position / velocity mismatch!")
+        logger.warning("position / velocity mismatch!")
 
     outs = []
     for i in range(max(len(pos_inds), len(vel_inds))):
@@ -134,7 +132,7 @@ def decode_GPS_data(data):
             if 'weeknum' in out.keys():
                 # If we had both a position and velocity message, confirm that the timestamps agree:
                 if out['weeknum'] != weeknum_vel:
-                    print("position / velocity timestamp mismatch")
+                    logger.warning("position / velocity timestamp mismatch")
             else:
                 # If we didn't get a position message, use this data
                 out['time_status'] = time_status

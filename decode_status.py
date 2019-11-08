@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 import datetime
-
+from decode_burst_command import decode_burst_command
 
 def decode_status(packets):
     '''
@@ -75,6 +75,10 @@ def decode_status(packets):
 
         mem_percent_full = 100.*(bytes_in_memory)/(128.*1024*1024);
 
+        # Decode the burst command:
+        cfg = decode_burst_command(prev_burst_command)
+        # print(cfg)
+
         nice_str = '---- System Status:  ----\n' +\
                 'Packet received at:\t%s\n'%(datetime.datetime.utcfromtimestamp(p['header_timestamp'])) +\
                 f'Source:\t\t\t{source}\n' + \
@@ -125,7 +129,7 @@ def decode_status(packets):
 
 if __name__ == '__main__':
 
-    with open('packets.pkl','rb') as f:
+    with open('output/packets.pkl','rb') as f:
         packets = pickle.load(f)
 
     stats = decode_status(packets)
