@@ -102,7 +102,8 @@ def decode_burst_data_by_experiment_number(packets, burst_cmd = None):
         current_packets = list(filter(lambda p: p['exp_num']==e_num, burst_packets))
         cur_G_packets   = list(filter(lambda p: p['dtype']=='G', current_packets))
         header_timestamps = sorted([p['header_timestamp'] for p in current_packets])
-        packet_inspector(current_packets)
+        
+        # packet_inspector(current_packets)
         # Burst command is echo'ed at the top of each GPS packet:
         gps_echoed_cmds = []
         for g in cur_G_packets:
@@ -387,7 +388,7 @@ if __name__ == '__main__':
     # stats = decode_status(packets)
     # for s in stats:
     #     print(s)
-
+    print(np.shape(packets))
     # bursts, unused = decode_burst_data(packets)
     bursts, unused = decode_burst_data_by_experiment_number(packets)
 
@@ -403,6 +404,7 @@ if __name__ == '__main__':
     outs['burst'] = bursts
     with open('manually_processed_burst.pkl','wb') as f:
         pickle.dump(outs, f)
+
 
     plot_burst_data(outs['burst'])
 
