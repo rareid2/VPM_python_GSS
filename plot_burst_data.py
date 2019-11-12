@@ -236,7 +236,7 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             components = os.path.splitext(filename)
             fname = components[0] + f"_{ind}" + components[1]
 
-        # fig.savefig(fname, bbox_inches='tight')
+        fig.savefig(fname, bbox_inches='tight')
 
 if __name__ == '__main__':
 
