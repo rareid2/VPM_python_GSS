@@ -52,14 +52,16 @@ g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--include_previous_data",dest='do_previous', action='store_true', help="Load and include previously-decoded data, which was not processed")
 g.add_argument("--ignore_previous_data", dest='do_previous', action='store_false', help="Do not include previously-decoded, but unprocessed data")
 g.set_defaults(do_previous=True)
+
 g = parser.add_mutually_exclusive_group(required=False)
-g.add_argument("--move_completed", dest='move_completed', action='store_true')
+g.add_argument("--move_completed", dest='move_completed', action='store_true', help="move completed .TLM files to the <out_dir>/processed")
 g.set_defaults(move_completed=False)
+
 g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--ignore_survey", dest='do_survey', action='store_false', help="Ignore any survey data")
 g.set_defaults(do_survey=True)
-g = parser.add_mutually_exclusive_group(required=False)
 
+g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--ignore_burst", dest='do_burst', action='store_false', help ="Ignore any burst data")
 g.set_defaults(do_burst=True)
 
