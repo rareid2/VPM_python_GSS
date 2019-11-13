@@ -5,9 +5,10 @@ import os
 import pickle
 from decode_status import decode_status
 from decode_burst_command import decode_burst_command
+import logging
 
 def packet_inspector(packets):
-    ''' A nice tool to analyze packets in a list. CLick'em to see info about them! '''
+    ''' A nice tool to analyze packets in a list. Click'em to see info about them! '''
 
     # Select burst packets
     E_packets = list(filter(lambda packet: packet['dtype'] == 'E', packets))

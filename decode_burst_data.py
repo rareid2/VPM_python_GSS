@@ -64,7 +64,7 @@ def FD_reassemble(vec):
     return re
 
 
-def decode_burst_data_by_experiment_number(packets, burst_cmd = None):
+def decode_burst_data_by_experiment_number(packets, burst_cmd = None, debug_plots=False):
     ''' Decode bursts by grouping packets by experiment number.
         The burst command is echoed in each GPS packet; the number of repeats
         is decoded by counting GPS packets.
@@ -103,7 +103,9 @@ def decode_burst_data_by_experiment_number(packets, burst_cmd = None):
         cur_G_packets   = list(filter(lambda p: p['dtype']=='G', current_packets))
         header_timestamps = sorted([p['header_timestamp'] for p in current_packets])
         
-        # packet_inspector(current_packets)
+        if debug_plots:
+            packet_inspector(current_packets)
+            
         # Burst command is echo'ed at the top of each GPS packet:
         gps_echoed_cmds = []
         for g in cur_G_packets:

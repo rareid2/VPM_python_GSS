@@ -10,18 +10,18 @@ from parula_colormap import parula
 import logging
 
 
-def plot_burst_data(B_data, filename="burst_data.pdf"):
+def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
 
     logger = logging.getLogger(__name__)
 
     # --------------- Latex Plot Beautification --------------------------
-    fig_width = 8 
-    fig_height = 6
+    fig_width = 10 
+    fig_height = 8
     fig_size =  [fig_width+1,fig_height+1]
     params = {'backend': 'ps',
-              'axes.labelsize': 10,
-              'font.size': 10,
-              'legend.fontsize': 8,
+              'axes.labelsize': 12,
+              'font.size': 12,
+              'legend.fontsize': 10,
               'xtick.labelsize': 10,
               'ytick.labelsize': 10,
               'text.usetex': False,
@@ -54,9 +54,9 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
 
 
         if cfg['TD_FD_SELECT'] == 1:
-            # Time domain mode
+# --------- Time domain plots  -----------
             fig = plt.figure()
-            gs = GridSpec(2, 3, width_ratios=[20, 20, 1])
+            gs = GridSpec(2, 3, width_ratios=[20, 20, 1],  wspace = 0.2, hspace = 0.1)
             E_TD = fig.add_subplot(gs[0,0])
             B_TD = fig.add_subplot(gs[1,0], sharex=E_TD)
             E_FD = fig.add_subplot(gs[0,1], sharex=E_TD)
@@ -65,7 +65,7 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             cb2 = fig.add_subplot(gs[1,2])
 
 
-            # --------- Time domain plots  -----------
+
             td_lims = [-32768, 32768] #[-1,1]
             # Generate time axis
 
@@ -77,9 +77,14 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             else:
                 fs_equiv = 80000.
 
-            # Seconds from the start of the burst
-            t_axis = np.array([(np.arange(cfg['SAMPLES_ON']))/fs_equiv +\
-                          (k*(cfg['SAMPLES_ON'] + cfg['SAMPLES_OFF']))/fs_equiv for k in range(cfg['burst_pulses'])]).ravel()
+            if cfg['SAMPLES_OFF'] == 0:
+                max_ind = max(len(burst['E']), len(burst['B']))
+                t_axis = np.arange(max_ind)/fs_equiv
+            else:
+
+                # Seconds from the start of the burst
+                t_axis = np.array([(np.arange(cfg['SAMPLES_ON']))/fs_equiv +\
+                              (k*(cfg['SAMPLES_ON'] + cfg['SAMPLES_OFF']))/fs_equiv for k in range(cfg['burst_pulses'])]).ravel()
 
             # Add in system delay 
             t_axis += system_delay_samps_TD/fs_equiv 
@@ -104,22 +109,25 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             window = 'hanning'
 
             
+            if cfg['SAMPLES_OFF'] == 0:
+                E_td_spaced = burst['E']
+                B_td_spaced = burst['B']
+            else:
+                # Insert nans into vector to account for "off" time sections
+                E_td_spaced = []
+                B_td_spaced = []
+                
+                for k in np.arange(cfg['burst_pulses']):
+                    E_td_spaced.append(burst['E'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
+                    E_td_spaced.append(np.ones(cfg['SAMPLES_OFF'])*np.nan)
+                    B_td_spaced.append(burst['B'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
+                    B_td_spaced.append(np.ones(cfg['SAMPLES_OFF'])*np.nan)
 
-            # Insert nans into vector to account for "off" time sections
-            E_td_spaced = []
-            B_td_spaced = []
-            
-            for k in np.arange(cfg['burst_pulses']):
-                E_td_spaced.append(burst['E'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
-                E_td_spaced.append(np.ones(cfg['SAMPLES_OFF'])*np.nan)
-                B_td_spaced.append(burst['B'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
-                B_td_spaced.append(np.ones(cfg['SAMPLES_OFF'])*np.nan)
+
+                E_td_spaced = np.concatenate(E_td_spaced).ravel()
+                B_td_spaced = np.concatenate(B_td_spaced).ravel()
 
 
-            E_td_spaced = np.concatenate(E_td_spaced).ravel()
-            B_td_spaced = np.concatenate(B_td_spaced).ravel()
-
-            
             clims = [-96, -20]
 
             # E spectrogram
@@ -156,14 +164,16 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             cb.set_label('dB(sqrt(psd))')
 
             fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off'%(start_timestamp, cfg['burst_pulses'], sec_on, sec_off))
-            plt.show()
+
+            if show_plots:
+                plt.show()
 
         elif cfg['TD_FD_SELECT'] == 0:
-            # Frequency-domain plotting here:
+# --------- Frequency domain plots  -----------
             fig = plt.figure()
-            gs = GridSpec(2, 2, width_ratios=[20, 1])
+            gs = GridSpec(2, 2, width_ratios=[20, 1],  wspace = 0.05, hspace = 0.05)
             E_FD = fig.add_subplot(gs[0,0])
-            B_FD = fig.add_subplot(gs[1,0])
+            B_FD = fig.add_subplot(gs[1,0], sharex=E_FD, sharey=E_FD)
             cb1 = fig.add_subplot(gs[0,1])
             cb2 = fig.add_subplot(gs[1,1])
 
@@ -173,59 +183,106 @@ def plot_burst_data(B_data, filename="burst_data.pdf"):
             f_axis = []
             seg_length = nfft/2/16
 
-            for i, v in enumerate(np.flip(cfg['BINS'])):
+            for i, v in enumerate(cfg['BINS'][::-1]):
                 if v=='1':
                     f_axis.append([np.arange(seg_length)+seg_length*i])
-
+            freq_inds = np.array(f_axis).ravel().astype('int') # stash the row indices here
             f_axis = (40000/(nfft/2))*np.array(f_axis).ravel()
+            f_axis_full = np.arange(512)*40000/512;
 
             logger.debug(f"f axis: {len(f_axis)}")
             
             # E and B are flattened vectors; we need to reshape them into 2d arrays (spectrograms)
             max_E = len(burst['E']) - np.mod(len(burst['E']), len(f_axis))
             E = burst['E'][0:max_E].reshape(int(max_E/len(f_axis)), len(f_axis))/32768.
+            E = E.T
             max_B = len(burst['B']) - np.mod(len(burst['B']), len(f_axis))
             B = burst['B'][0:max_B].reshape(int(max_B/len(f_axis)), len(f_axis))/32768.
+            B = B.T
             
             logger.debug(f"E dims: {np.shape(E)}, B dims: {np.shape(B)}")
 
+            # Generate time axis
             scale_factor = nfft/2./80000.
             if cfg['FFTS_OFF'] == 0:
                 # probably don't have burst_pulses decoded correctly, since we're just counting received GPS
                 # packets. GPS packets are taken when stopping data capture -- e.g., at the end of the burst,
                 # or transitioning to a "samples off" section.
-                t_axis = np.arange(np.shape(E)[0])*scale_factor
-                start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][0]['timestamp']) - datetime.timedelta(seconds=np.round(t_axis[-1]))
-            else:
-                t_axis = np.array([(np.arange(cfg['FFTS_ON'])) +\
-                              (k*(cfg['FFTS_ON'] + cfg['FFTS_OFF'])) for k in range(cfg['burst_pulses'])]).ravel()
-                t_axis += system_delay_samps_FD        
-                t_axis = t_axis*scale_factor     
-                start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][0]['timestamp']) - datetime.timedelta(seconds=np.round(cfg['FFTS_ON']*scale_factor))
+                max_t_ind = np.shape(E)[1]
+                t_inds = np.arange(max_t_ind)
+                t_axis_seconds = t_inds*scale_factor
+                start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][0]['timestamp']) - datetime.timedelta(seconds=np.round(t_axis_seconds[-1]))
+                t_axis_full_seconds = np.arange(max_t_ind)*scale_factor + system_delay_samps_FD/fs
+                t_axis_full_timestamps = burst['G'][0]['timestamp'] - max_t_ind*scale_factor + t_axis_full_seconds
 
+            else:
+                t_inds = np.array([(np.arange(cfg['FFTS_ON'])) + (k*(cfg['FFTS_ON'] + cfg['FFTS_OFF'])) for k in range(cfg['burst_pulses'])]).ravel()
+                max_t_ind = (cfg['FFTS_ON'] + cfg['FFTS_OFF'])*cfg['burst_pulses']
+                start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][0]['timestamp']) - datetime.timedelta(seconds=np.round(cfg['FFTS_ON']*scale_factor))
+                t_axis_full_seconds = np.arange(max_t_ind)*scale_factor + system_delay_samps_FD/fs
+                t_axis_full_timestamps = burst['G'][0]['timestamp'] - cfg['FFTS_ON']*scale_factor + t_axis_full_seconds
+
+            # Spectrogram color limits    
             clims = [-96, 0];
-            Emag = 20*np.log10(np.abs(E.T))
+
+            # Log-scaled magnitudes
+            Emag = 20*np.log10(np.abs(E))
             Emag[np.isinf(Emag)] = -100
-            Bmag = 20*np.log10(np.abs(B.T))
+            Bmag = 20*np.log10(np.abs(B))
             Bmag[np.isinf(Bmag)] = -100
-            # Spaced
+
+            # Spaced spectrogram -- insert nans (or -120 for a blue background) in the empty spaces
+            E_spec_full = -120*np.ones([max_t_ind, 512])
+            B_spec_full = -120*np.ones([max_t_ind, 512])
+
+            a,b = np.meshgrid(t_inds, freq_inds)
+
+            E_spec_full[a,b] = Emag
+            B_spec_full[a,b] = Bmag
+            E_spec_full = E_spec_full.T
+            B_spec_full = B_spec_full.T          
             
-            
-            # pe = E_FD.pcolormesh(t_axis,f_axis/1000, 20*np.log10(np.abs(E.T)), cmap = cm, vmin=clims[0], vmax=clims[1])
-            # pb = B_FD.pcolormesh(t_axis,f_axis/1000, 20*np.log10(np.abs(B.T)), cmap = cm, vmin=clims[0], vmax=clims[1])
+            # Plots!
+            pe = E_FD.pcolormesh(t_axis_full_timestamps, f_axis_full/1000, E_spec_full, cmap = cm, vmin=clims[0], vmax=clims[1])
+            pb = B_FD.pcolormesh(t_axis_full_timestamps, f_axis_full/1000, B_spec_full, cmap = cm, vmin=clims[0], vmax=clims[1])
+
+            # Axis labels and ticks. Label the burst start time, and the GPS timestamps.
+            xtix = [t_axis_full_timestamps[0]]
+            xtix.extend([x['timestamp'] for x in burst['G']])
+            minorticks = np.arange(np.ceil(t_axis_full_timestamps[0]), t_axis_full_timestamps[-1], 5)  # minor tick marks -- 5 seconds
+            E_FD.set_xticks(xtix)
+            E_FD.set_xticks(minorticks, minor=True)
+            B_FD.set_xticks(xtix)
+            B_FD.set_xticks(minorticks, minor=True)
+            E_FD.set_xticklabels([])
+            B_FD.set_xticklabels([datetime.datetime.utcfromtimestamp(x).strftime("%H:%M:%S") for x in xtix])
+
+            fig.autofmt_xdate()
 
             # Not spaced
-            pe = E_FD.pcolormesh(Emag, cmap = cm, vmin=clims[0], vmax=clims[1])
-            pb = B_FD.pcolormesh(Bmag, cmap = cm, vmin=clims[0], vmax=clims[1])
+            # pe = E_FD.pcolormesh(Emag, cmap = cm, vmin=clims[0], vmax=clims[1])
+            # pb = B_FD.pcolormesh(Bmag, cmap = cm, vmin=clims[0], vmax=clims[1])
+
             ce = plt.colorbar(pe, cax=cb1)
             cb = plt.colorbar(pb, cax=cb2)
 
             E_FD.set_ylim([0, 40])
             B_FD.set_ylim([0, 40])
 
-            B_FD.set_xlabel('Time [sec from start]')
+            E_FD.set_ylabel('E\n Frequency [kHz]')
+            B_FD.set_ylabel('B\n Frequency [kHz]')
+
+            ce.set_label('dBFS')
+            cb.set_label('dBFS')
+
+            # B_FD.set_xlabel('Time [sec from start]')
+            B_FD.set_xlabel("Time (H:M:S) on \n%s"%start_timestamp.strftime("%Y-%m-%d"))
+
         fig.suptitle(f'Burst {ind}\n{start_timestamp}')    
-        plt.show()
+
+        
+        if show_plots:
+            plt.show()
         # fig.savefig(filename, bbox_inches='tight')
 
 
@@ -253,4 +310,4 @@ if __name__ == '__main__':
 
     B_data = d['burst']
 
-    plot_burst_data(B_data, "burst_data.pdf")
+    plot_burst_data(B_data, "burst_data.png")

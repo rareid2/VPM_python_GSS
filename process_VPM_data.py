@@ -5,6 +5,7 @@ from decode_status import decode_status
 from plot_survey_data import plot_survey_data
 from plot_burst_data import plot_burst_data
 from file_handlers import write_burst_XML, write_survey_XML
+from packet_inspector import packet_inspector
 import random
 import argparse
 import os
@@ -15,10 +16,7 @@ import shutil
 import logging
 
 
-#  ----------- Start the logger -------------
 
-logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
-logging.getLogger('matplotlib').setLevel(logging.WARNING)
 # logging.Formatter('%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s', "%Y-%m-%d %H:%M:%S") 
 # # Log file handler
 # fh = logging.FileHandler('log_filename.txt')
@@ -34,12 +32,11 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 #  ----------- Parse input configuration -------------
 
-parser = argparse.ArgumentParser(description="hey")
+parser = argparse.ArgumentParser(description="VPM Ground Support Software")
 parser.add_argument("--in_dir",  required=True, type=str, default = 'input', help="path to directory of .tlm files")
 parser.add_argument("--out_dir", required=False, type=str, default='output', help="path to output directory")
 parser.add_argument("--workfile", required=False, type=str, default="in_progress.pkl", help="file to store unused packets (a pickle file)")
 parser.add_argument("--previous_pkl_file", required=False, type=str, default=None, help="filename of previously-decoded packets (packets.pkl)")
-
 
 g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--save_xml", dest='do_xml', action='store_true', help="save decoded data in XML files")
@@ -62,11 +59,34 @@ g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--ignore_survey", dest='do_survey', action='store_false', help="Ignore any survey data")
 g.set_defaults(do_survey=True)
 g = parser.add_mutually_exclusive_group(required=False)
+
 g.add_argument("--ignore_burst", dest='do_burst', action='store_false', help ="Ignore any burst data")
 g.set_defaults(do_burst=True)
 
+g = parser.add_mutually_exclusive_group(required=False)
+g.add_argument("--debug", dest='debug', action='store_true', help ="Debug mode (extra chatty)")
+g.set_defaults(debug=False)
+
+g = parser.add_mutually_exclusive_group(required=False)
+g.add_argument("--packet_inspector", dest='packet_inspector', action='store_true', help ="Show the packet inspector tool")
+g.set_defaults(packet_inspector=False)
+
+g = parser.add_mutually_exclusive_group(required=False)
+g.add_argument("--interactive_plots", dest='int_plots', action='store_true', help ="Show plots")
+g.set_defaults(int_plots=False)
+
 
 args = parser.parse_args()
+
+#  ----------- Start the logger -------------
+if args.debug:
+    logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
+else:
+    logging.basicConfig(level=logging.INFO, format='[%(name)s]\t%(levelname)s\t%(message)s')
+
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
+# Ignore divide-by-zero errors (which happen in plotting log-scaled spectrograms)
+np.seterr(divide='ignore')
 
 data_root = args.in_dir
 out_root  = args.out_dir
@@ -134,11 +154,14 @@ else:
         with open(os.path.join(out_root,'packets.pkl'),'wb') as f:
             pickle.dump(packets, f)
 
+if args.packet_inspector:
+    packet_inspector(packets)
+
 outs = dict()
 
 if args.do_burst:
     logging.info("Decoding burst data")
-    B_data, unused_burst = decode_burst_data_by_experiment_number(packets)
+    B_data, unused_burst = decode_burst_data_by_experiment_number(packets, debug_plots=args.packet_inspector)
     outs['burst'] = B_data
 
 if args.do_survey:
@@ -181,9 +204,9 @@ if args.do_xml:
 # Plot the results!
 if args.do_burst and B_data:
     logging.info("plotting survey data")
-    plot_burst_data(B_data, os.path.join(out_root,"burst_data.png"))
+    plot_burst_data(B_data, os.path.join(out_root,"burst_data.png"), show_plots = args.int_plots)
 
 if args.do_survey and S_data:
     logging.info("plotting burst data")
-    plot_survey_data(S_data,os.path.join(out_root,"survey_data.png"))
+    plot_survey_data(S_data,os.path.join(out_root,"survey_data.png"), show_plots = args.int_plots)
 

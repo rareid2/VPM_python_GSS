@@ -9,7 +9,7 @@ from parula_colormap import parula
 
 
 
-def plot_survey_data(S_data, filename="survey_data.pdf"):
+def plot_survey_data(S_data, filename="survey_data.pdf", show_plots=False):
     '''
     Author:     Austin Sousa
                 austin.sousa@colorado.edu
@@ -27,6 +27,21 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     outputs:
         saved images; format is defined by the suffix of filename
     '''
+    # --------------- Latex Plot Beautification --------------------------
+    fig_width = 10 
+    fig_height = 8
+    fig_size =  [fig_width+1,fig_height+1]
+    params = {'backend': 'ps',
+              'axes.labelsize': 12,
+              'font.size': 12,
+              'legend.fontsize': 10,
+              'xtick.labelsize': 10,
+              'ytick.labelsize': 10,
+              'text.usetex': False,
+              'figure.figsize': fig_size}
+    plt.rcParams.update(params)
+    # --------------- Latex Plot Beautification --------------------------
+
 
     # Assemble into grids:
 
@@ -60,7 +75,7 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
     E = E[sort_inds, :]; B = B[sort_inds, :]; T = T[sort_inds];
 
     fig = plt.figure()
-    gs = GridSpec(2, 2, width_ratios=[20, 1])
+    gs = GridSpec(2, 2, width_ratios=[20, 1], wspace = 0.05, hspace = 0.05)
     ax1 = fig.add_subplot(gs[0,0])
     ax2 = fig.add_subplot(gs[1,0])
     cbax = fig.add_subplot(gs[:,1])
@@ -108,10 +123,13 @@ def plot_survey_data(S_data, filename="survey_data.pdf"):
 
     ax1.set_ylabel('E channel\nFrequency [kHz]')
     ax2.set_ylabel('B channel\nFrequency [kHz]')
-    # fig.autofmt_xdate()
-    gs.tight_layout(fig)
     
-    plt.show()
+    
+    fig.suptitle(f'VPM Survey Data\n {datetime.datetime.utcfromtimestamp(T[0])} -- {datetime.datetime.utcfromtimestamp(T[-1])}')
+    # gs.tight_layout(fig)
+    
+    if show_plots:
+        plt.show()
     fig.savefig(filename, bbox_inches='tight')
 
 
