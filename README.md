@@ -31,13 +31,19 @@ Python software to decode data from VPM.
   --ignore_previous_data
                         Do not include previously-decoded, but unprocessed
                         data
-  --move_completed      move processed .TLM files to <out_dir/processed>
+  --move_completed      move completed .TLM files to the <out_dir>/processed
   --ignore_survey       Ignore any survey data
-  --ignore_burst        Ignore any burst data```
+  --ignore_burst        Ignore any burst data
+  --debug               Debug mode (extra chatty)
+  --packet_inspector    Show the packet inspector tool
+  --interactive_plots   Show plots
+  ```
   
 
 ### Requirements:
   - python 3
   - numpy
+  - matplotlib
+  - basic python libraries (os, logging, etc)
   
   (I'm using Anaconda3)
