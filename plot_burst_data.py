@@ -35,16 +35,8 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
     # for burst in [B_data[1]]:
         logger.debug(burst['config'])
         cfg = burst['config']
-        # if len(burst['G']) > 0:
-        #     timestamp = burst['G'][0]['timestamp']  # This might be a list of timestamps for windowed bursts
-        #     for g in burst['G']:
-        #         logger.info(f"GPS timestamp: {datetime.datetime.utcfromtimestamp(g['timestamp'])}")
-        # else:
-        #     timestamp = 0 #datetime.datetime(1970,1,1,0,0,0).timestamp()
-
+        logger.info(f'plotting burst {ind}')
         logger.info(f'burst configuration: {cfg}')
-
-
 
         system_delay_samps_TD = 73;    
         system_delay_samps_FD = 200;
@@ -150,9 +142,6 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
             pb = B_FD.pcolorfast(tt,ff/1000, B_S_mag, cmap = cm,  vmin=clims[0], vmax=clims[1])
             cb = plt.colorbar(pb, cax=cb2)
 
-            # E_TD.set_xticklabels([])
-            # E_FD.set_xticklabels([])
-
             E_TD.set_ylabel('E\nAmplitude')
             B_TD.set_ylabel('B\nAmplitude')
             E_FD.set_ylabel('Frequency [kHz]')
@@ -205,9 +194,9 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
             # Generate time axis
             scale_factor = nfft/2./80000.
             if cfg['FFTS_OFF'] == 0:
-                # probably don't have burst_pulses decoded correctly, since we're just counting received GPS
-                # packets. GPS packets are taken when stopping data capture -- e.g., at the end of the burst,
-                # or transitioning to a "samples off" section.
+                # GPS packets are taken when stopping data capture -- e.g., at the end of the burst,
+                # or transitioning to a "samples off" section. If we're doing back-to-back bursts
+                # with no windowing, we'll only have one GPS timestamp instead of burst_pulses.
                 max_t_ind = np.shape(E)[1]
                 t_inds = np.arange(max_t_ind)
                 t_axis_seconds = t_inds*scale_factor
@@ -280,11 +269,8 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
 
         fig.suptitle(f'Burst {ind}\n{start_timestamp}')    
 
-        
         if show_plots:
             plt.show()
-        # fig.savefig(filename, bbox_inches='tight')
-
 
         # Save it!
         if ind == 0:

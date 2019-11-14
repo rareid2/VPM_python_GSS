@@ -22,8 +22,7 @@ def remove_trailing_nans(arr1d):
         trimmed = arr1d[0:notnans[-1]+1]  # slice from first not-nan to the last one
     else:
         trimmed = np.zeros(0)
-    # print(f"arr has {np.sum(np.isnan(arr1d))} nans")
-    # print(f"Trim has {np.sum(np.isnan(trimmed))} nans")
+
         
     return trimmed
 
@@ -346,7 +345,7 @@ def process_burst(packets, burst_config):
     if burst_config['TD_FD_SELECT']==1:
         SAMPLES_TO_IGNORE = 105;
         # Initialize for time domain
-        n_samples = 2*burst_config['SAMPLES_ON']*burst_config['burst_pulses'] # how many 8-bit values should we get?
+        n_samples = burst_config['SAMPLES_ON']*burst_config['burst_pulses'] # how many 8-bit values should we get?
         if burst_config['DECIMATE_ON']==1:
             # (Not sure about this)
             n_samples = n_samples/burst_config['DECIMATION_FACTOR']
@@ -371,8 +370,15 @@ def process_burst(packets, burst_config):
 
     logger.debug(f'Reassembled E has length {len(E)}, with {np.sum(np.isnan(E))} nans. Raw E missing {np.sum(np.isnan(E_data))} values.')
     logger.debug(f'Reassembled B has length {len(B)}, with {np.sum(np.isnan(B))} nans. Raw B missing {np.sum(np.isnan(B_data))} values.')
-    logger.debug(f'expected {int(n_samples/2)} samples')
+    logger.debug(f'expected {int(n_samples)} samples')
 
+    if len(E)!=int(n_samples):
+        logger.warning("E data size is an unexpected size -- possible missing packets or mismatched data")
+        logger.warning(f'Reassembled E has length {len(E)}, with {np.sum(np.isnan(E))} nans. Raw E missing {np.sum(np.isnan(E_data))} values. Expected {int(n_samples)} samples')
+
+    if len(B)!=int(n_samples):
+        logger.warning("B data size is an unexpected size -- possible missing packets or mismatched data")
+        logger.warning(f'Reassembled B has length {len(B)}, with {np.sum(np.isnan(B))} nans. Raw B missing {np.sum(np.isnan(B_data))} values. Expected {int(n_samples)} samples')
 
     outs = dict()
     outs['E'] = E

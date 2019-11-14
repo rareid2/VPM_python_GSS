@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom as MD
 import numpy as np
 import datetime
+import os
 
 def write_survey_netCDF(data, filename='survey_data.nc'):
     '''
@@ -61,7 +62,7 @@ def write_survey_netCDF(data, filename='survey_data.nc'):
     latency      = f.createVariable('GPS/metadata/latency','f4',('time'))
 
     # Flip through the list, sorted by timestamp
-    for i, d in enumerate(sorted(outs['survey'], key = lambda i: i['GPS'][0]['timestamp'])):
+    for i, d in enumerate(sorted(data, key = lambda i: i['GPS'][0]['timestamp'])):
         E[i,:] = d['E_data']
         B[i,:] = d['B_data']
 
@@ -85,111 +86,127 @@ def write_survey_netCDF(data, filename='survey_data.nc'):
     f.close()
 
 
-def write_burst_netCDF(data, filename='burst_data.nc'):
+def write_burst_netCDF(data_in, filename='burst_data.nc'):
+
 
     datatype = 'int16' # single, double? int? The original data is 16 bit
 
-    f = netCDF4.Dataset(filename,"w")
+    for ind, data in enumerate(data_in): 
+    # Write a separate file for each burst
 
-    # Burst configuration parameters:
-    cfg = f.createGroup('config')
-    for k,v in data['config'].items():
-        setattr(cfg, k, v)
+        # Filename
+        if ind == 0:
+            fname = filename
+        else:
+            components = os.path.splitext(filename)
+            fname = components[0] + f"_{ind}" + components[1]
 
-    time = f.createDimension("time",None)
+        f = netCDF4.Dataset(fname,"w")
+        # Burst configuration parameters:
+        cfg = f.createGroup('config')
+        for k,v in data['config'].items():
+            setattr(cfg, k, v)
 
-    # There's a timestamp corresponding to each nPulses; each timestamp object is a position and velocity message.
-    # TODO: have decode_GPS return a list of timestamps
-    ts = f.createDimension("timestamps",None) 
-    f_gps = f.createGroup('GPS')
+        time = f.createDimension("time",None)
 
-    if data['config']['TD_FD_SELECT'] ==1:
-        # Time-domain mode:
+        # There's a timestamp corresponding to each nPulses; each timestamp object is a position and velocity message.
+        # TODO: have decode_GPS return a list of timestamps
+        ts = f.createDimension("timestamps",None) 
+        f_gps = f.createGroup('GPS')
+
+        if data['config']['TD_FD_SELECT'] ==1:
+            # Time-domain mode:
 
 
-        E = f.createVariable('data/E',datatype,('time'))
-        E.description = "Electric field burst data"
-        E.units = "eng. units"
-        E[:] = data['E']
+            E = f.createVariable('data/E','i2',('time'))
+            E.description = "Electric field burst data"
+            E.units = "eng. units"
+            E[:] = data['E']
 
-        B = f.createVariable('data/B',datatype,('time'))
-        B.description = "Magnetic field burst data"
-        B.units = "eng. units"
-        B[:] = data['B']
+            B = f.createVariable('data/B','i2',('time'))
+            B.description = "Magnetic field burst data"
+            B.units = "eng. units"
+            B[:] = data['B']
+            
+            # T = f.createVariable('data/t_axis','f4',('time'))
+            # T.description = "time axis (seconds elapsed from beginning of burst)"
+            # T[:] = data['t_axis']
+
+        else:
+            # Frequency-domain mode:
+
+            # Get frequency axis size:
+            f_length = int(data['config']['BINS'].count('1')*(1024/2/16))
         
-        T = f.createVariable('data/t_axis','f4',('time'))
-        T.description = "time axis (seconds elapsed from beginning of burst)"
-        T[:] = data['t_axis']
+            freq = f.createDimension("frequency",f_length)
+            
+            max_E = len(data['E']) - np.mod(len(data['E']), f_length)
+            E_2D = data['E'][0:max_E].reshape(int(max_E/f_length), f_length)
+            max_B = len(data['B']) - np.mod(len(data['B']), f_length)
+            B_2D = data['B'][0:max_B].reshape(int(max_B/f_length), f_length)
 
-    else:
-        # Frequency-domain mode:
+            E_real = f.createVariable('data/E/real','i2',('time','frequency'))
+            E_real.description = "Electric field burst data -- real component"
+            E_imag = f.createVariable('data/E/imag','i2',('time','frequency'))
+            E_imag.description = "Electric field burst data -- imaginary component"
+            
+            E_real[:,:] = np.real(E_2D).astype('int16')
+            E_imag[:,:] = np.imag(E_2D).astype('int16')
+            
+            B_real = f.createVariable('data/B/real','i2',('time','frequency'))
+            B_real.description = "Magnetic field burst data -- real component"
+            B_imag = f.createVariable('data/B/imag','i2',('time','frequency'))
+            B_imag.description = "Magnetic field burst data -- imaginary component"
+
+            B_real[:,:] = np.real(B_2D).astype('int16')
+            B_imag[:,:] = np.imag(B_2D).astype('int16')
+
+        # GPS data:
+        lat = f.createVariable('GPS/lat','d',('timestamps'))
+        lat.description = "geo latitude"
+        lat.units = 'deg'
+        lon = f.createVariable('GPS/lon','d',('timestamps'))
+        lon.description = "geo longitude"
+        lon.units = 'deg'
+        alt = f.createVariable('GPS/alt','d',('timestamps'))
+        alt.description = 'height above sea level'
+        alt.units = 'm'
+        v_horiz = f.createVariable('GPS/vel_horiz','d',('timestamps'))
+        v_horiz.description="Horizontal velocity"
+        v_horiz.units="m/s"
+        v_vert = f.createVariable('GPS/vel_vert','d',('timestamps'))
+        v_vert.description="Vertical velocity"
+        v_vert.units='m/s'
+        v_gt = f.createVariable('GPS/ground_track','d',('timestamps'))
+        v_gt.description="Ground track direction"
+        v_gt.units='deg'
+
+        # GPS metadata:
+        tracked_sats = f.createVariable('GPS/metadata/tracked_sats','I',('timestamps'))
+        used_sats    = f.createVariable('GPS/metadata/used_sats','I',('timestamps'))
+        soln_status  = f.createVariable('GPS/metadata/solution_status','I',('timestamps'))
+        soln_type    = f.createVariable('GPS/metadata/solution_type','I',('timestamps'))
+        latency      = f.createVariable('GPS/metadata/latency','f4',('timestamps'))
+
+
+        # here's where you should loop over multiple GPS timestamp messages:
+        for i, G in enumerate(data['G']):
         
-        freq = f.createDimension("frequency",len(data['f_axis']))
-        
-        E = f.createVariable('data/E',datatype,('time','freq'))
-        E.description = "Electric field survey data"
-        E[:] = data['E']
+            lat[i] = G['lat']
+            lon[i] = G['lon']
+            alt[i] = G['alt']
 
-        B = f.createVariable('data/B',datatype,('time','freq'))
-        B.description = "Magnetic field burst data"
-        B[:] = data['B']
+            v_horiz[i] = G['horiz_speed']
+            v_vert[i] = G['vert_speed']
+            v_gt[i] = G['ground_track']
 
-        T = f.createVariable('data/t_axis','f4',('time'))
-        T.description = "time axis (seconds elapsed from beginning of burst)"
-        T[:] = data['t_axis']
-        
-        F = f.createVariable('data/f_axis','f4',('freq'))
-        F.description = "frequency"
-        f.units = 'Hz'
-        F[:] = data['f_axis']
-
-    # GPS data:
-    lat = f.createVariable('GPS/lat','d',('timestamps'))
-    lat.description = "geo latitude"
-    lat.units = 'deg'
-    lon = f.createVariable('GPS/lon','d',('timestamps'))
-    lon.description = "geo longitude"
-    lon.units = 'deg'
-    alt = f.createVariable('GPS/alt','d',('timestamps'))
-    alt.description = 'height above sea level'
-    alt.units = 'm'
-    v_horiz = f.createVariable('GPS/vel_horiz','d',('timestamps'))
-    v_horiz.description="Horizontal velocity"
-    v_horiz.units="m/s"
-    v_vert = f.createVariable('GPS/vel_vert','d',('timestamps'))
-    v_vert.description="Vertical velocity"
-    v_vert.units='m/s'
-    v_gt = f.createVariable('GPS/ground_track','d',('timestamps'))
-    v_gt.description="Ground track direction"
-    v_gt.units='deg'
-
-    # GPS metadata:
-    tracked_sats = f.createVariable('GPS/metadata/tracked_sats','I',('timestamps'))
-    used_sats    = f.createVariable('GPS/metadata/used_sats','I',('timestamps'))
-    soln_status  = f.createVariable('GPS/metadata/solution_status','I',('timestamps'))
-    soln_type    = f.createVariable('GPS/metadata/solution_type','I',('timestamps'))
-    latency      = f.createVariable('GPS/metadata/latency','f4',('timestamps'))
-
-
-
-    # here's where you should loop over multiple GPS timestamp messages:
-    for i, G in enumerate(data['G']):
-    
-        lat[i] = G['lat']
-        lon[i] = G['lon']
-        alt[i] = G['alt']
-
-        v_horiz[i] = G['horiz_speed']
-        v_vert[i] = G['vert_speed']
-        v_gt[i] = G['ground_track']
-
-        # GPS metadata
-        tracked_sats[i] = G['tracked_sats']
-        used_sats[i] = G['used_sats']
-        soln_status[i] = G['solution_status']
-        soln_type[i] = G['solution_type']
-        latency[i] = G['latency']
-    f.close()
+            # GPS metadata
+            tracked_sats[i] = G['tracked_sats']
+            used_sats[i] = G['used_sats']
+            soln_status[i] = G['solution_status']
+            soln_type[i] = G['solution_type']
+            latency[i] = G['latency']
+        f.close()
 
 
 def write_survey_XML(in_data, filename='survey_data.xml'):

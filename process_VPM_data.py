@@ -5,6 +5,7 @@ from decode_status import decode_status
 from plot_survey_data import plot_survey_data
 from plot_burst_data import plot_burst_data
 from file_handlers import write_burst_XML, write_survey_XML
+from file_handlers import write_burst_netCDF, write_survey_netCDF
 from packet_inspector import packet_inspector
 import random
 import argparse
@@ -12,23 +13,9 @@ import os
 import numpy as np
 import pickle
 import shutil
-
 import logging
 
 
-
-# logging.Formatter('%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s', "%Y-%m-%d %H:%M:%S") 
-# # Log file handler
-# fh = logging.FileHandler('log_filename.txt')
-# fh.setLevel(logging.DEBUG)
-# fh.setFormatter(formatter)
-# logger.addHandler(fh)
-
-# # Log console handler
-# ch = logging.StreamHandler()
-# ch.setLevel(logging.DEBUG)
-# ch.setFormatter(formatter)
-# logger.addHandler(ch)# logger.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 #  ----------- Parse input configuration -------------
 
@@ -46,7 +33,12 @@ g.set_defaults(do_xml=True)
 g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--save_pkl", dest='do_pickle', action='store_true', help="save decoded data as python Pickle files")
 g.add_argument("--no_pkl", dest='do_pickle',   action='store_false', help="do not generate output pickle files")
-g.set_defaults(do_pickle=True)
+g.set_defaults(do_pickle=False)
+
+g = parser.add_mutually_exclusive_group(required=False)
+g.add_argument("--save_netcdf", dest='do_netcdf', action='store_true', help="save decoded data in netCDF files")
+g.add_argument("--no_netcdf", dest='do_netcdf', action='store_false', help="do not generate output netCDF files")
+g.set_defaults(do_netcdf=False)
 
 g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--include_previous_data",dest='do_previous', action='store_true', help="Load and include previously-decoded data, which was not processed")
@@ -79,30 +71,21 @@ g.set_defaults(int_plots=False)
 
 
 args = parser.parse_args()
-
-#  ----------- Start the logger -------------
-if args.debug:
-    logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
-else:
-    logging.basicConfig(level=logging.INFO, format='[%(name)s]\t%(levelname)s\t%(message)s')
-
-logging.getLogger('matplotlib').setLevel(logging.WARNING)
-# Ignore divide-by-zero errors (which happen in plotting log-scaled spectrograms)
-np.seterr(divide='ignore')
-
 data_root = args.in_dir
 out_root  = args.out_dir
-
 in_progress_file = args.workfile
 
-
+#  ----------- Check input directory -------------
 if not os.path.isdir(data_root):
     raise ValueError("Invalid input directory")
 
+#  ----------- Check output directory ------------
 if not os.path.exists(out_root):
-    os.mkdir(out_root)
+    try:
+        os.mkdir(out_root)
+    except:
+        raise ValueError("Failed to create output directory")
 
-# Where to move the processed .TLM files
 processed_dir = os.path.join(out_root,'processed')
 if not os.path.exists(processed_dir):
     try:
@@ -111,12 +94,24 @@ if not os.path.exists(processed_dir):
         raise ValueError("Invalid output directory")
 
 
+#  ----------- Start the logger -------------
+# log_filename = os.path.join(out_root, 'log.txt')
+if args.debug:
+    logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
+else:
+    logging.basicConfig(level=logging.INFO,  format='[%(name)s]\t%(levelname)s\t%(message)s')
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
+# Ignore divide-by-zero errors (which happen in plotting log-scaled spectrograms)
+np.seterr(divide='ignore')
+
 packets = []
 
-# ---------- Load previously-decoded files ------------
+# ---------- Load previously-decoded packets ------------
 if args.previous_pkl_file is not None:
     with open(os.path.join(out_root,args.previous_pkl_file),'rb') as f:
         packets = pickle.load(f)
+
 else:
 # ------------------ Load TLM files -------------------
     d = os.listdir(data_root)
@@ -125,8 +120,7 @@ else:
 
     logging.info(f"found {len(tlm_files)} .tlm files")
 
-    if len(tlm_files) > 0:
-        
+    if len(tlm_files) > 0:        
         # Load packets from each TLM file, tag each with the 
         # source filename, and decode
 
@@ -148,67 +142,87 @@ else:
                 logging.info("loading previous unused data")
                 with open(in_progress_file,'rb') as f:
                     packets_in_progress = pickle.load(f) 
-                    print(packets_in_progress)   
-                    # packets.extend(packets_in_progress)
+                    logging.info(f'loaded {len(packets_in_progress)} in-progress packets')
+                    packets.extend(packets_in_progress)
 
 
-        # Save the decoded packets as an interstitial step
+        # Save the decoded packets as an interstitial step 
+        # (This isn't used anywhere, aside from module tests)
         with open(os.path.join(out_root,'packets.pkl'),'wb') as f:
             pickle.dump(packets, f)
 
-if args.packet_inspector:
-    packet_inspector(packets)
 
-outs = dict()
+if packets:
+    # Run the packet inspector tool, if requested
+    if args.packet_inspector:
+        packet_inspector(packets)
 
-if args.do_burst:
-    logging.info("Decoding burst data")
-    B_data, unused_burst = decode_burst_data_by_experiment_number(packets, debug_plots=args.packet_inspector)
-    outs['burst'] = B_data
+    outs = dict()
 
-if args.do_survey:
-    logging.info("Decoding survey data")
-    S_data, unused_survey = decode_survey_data(packets)
-    outs['survey'] = S_data
+    if args.do_burst:
+        logging.info("Decoding burst data")
+        B_data, unused_burst = decode_burst_data_by_experiment_number(packets, debug_plots=args.packet_inspector)
+        outs['burst'] = B_data
 
-logging.info("Decoding status messages")
-stats = decode_status(packets)
-outs['status'] = stats
+    if args.do_survey:
+        logging.info("Decoding survey data")
+        S_data, unused_survey = decode_survey_data(packets)
+        outs['survey'] = S_data
 
-# Delete previous unused packet file -- they've either
-# been processed by this point, or are in the new unused list
-if args.do_previous:
-    if os.path.exists(in_progress_file):
-        os.remove(in_progress_file)
+    logging.info("Decoding status messages")
+    stats = decode_status(packets)
+    outs['status'] = stats
 
-    # Store any unused survey packets
-    unused = unused_survey + unused_burst
+    # Delete previous unused packet file -- they've either
+    # been processed by this point, or are in the new unused list
+    if args.do_previous:
+        if os.path.exists(in_progress_file):
+            os.remove(in_progress_file)
 
-    if unused:
-        logging.info(f"Storing {len(unused)} unused packets")
-        with open(in_progress_file,'wb') as f:
-            pickle.dump(unused, f)
+        # Store any unused survey packets
+        unused = unused_survey + unused_burst
+        if unused:
+            logging.info(f"Storing {len(unused)} unused packets")
+            with open(in_progress_file,'wb') as f:
+                pickle.dump(unused, f)
 
 
-# Store the output data:
-# 1. as a Pickle file
-if args.do_pickle:
-    with open(os.path.join(out_root,'decoded_data.pkl'),'wb') as f:
-        pickle.dump(outs,f)
+    # Store the output data:
+    # 1. as a Pickle file
+    if args.do_pickle:
+        with open(os.path.join(out_root,'decoded_data.pkl'),'wb') as f:
+            pickle.dump(outs,f)
 
-# 2. as XML files
-if args.do_xml:
-    logging.info("writing burst xml")
-    write_burst_XML(outs['burst'], os.path.join(out_root,'burst_data.xml'))
-    logging.info("writing survey xml")
-    write_survey_XML(outs['survey'], os.path.join(out_root,'survey_data.xml'))
+    # 2. as XML files
+    if args.do_xml:
+        logging.info("writing burst xml")
+        write_burst_XML(outs['burst'], os.path.join(out_root,'burst_data.xml'))
+        logging.info("writing survey xml")
+        write_survey_XML(outs['survey'], os.path.join(out_root,'survey_data.xml'))
 
-# Plot the results!
-if args.do_burst and B_data:
-    logging.info("plotting survey data")
-    plot_burst_data(B_data, os.path.join(out_root,"burst_data.png"), show_plots = args.int_plots)
+    # 3. as netCDF files
+    if args.do_netcdf:
+        logging.info("writing burst netCDF")
+        write_burst_netCDF(outs['burst'], os.path.join(out_root,'burst_data.nc'))
+        logging.info("writing survey netCDF")
+        write_survey_netCDF(outs['survey'], os.path.join(out_root,'survey_data.nc'))
 
-if args.do_survey and S_data:
-    logging.info("plotting burst data")
-    plot_survey_data(S_data,os.path.join(out_root,"survey_data.png"), show_plots = args.int_plots)
+    # Write any status packets to a text file:
+    if stats:
+        logging.info("writing status messages")
+        with open(os.path.join(out_root,'status_messages.txt'),'w') as f:
+            for st in stats:
+                f.write(st)
 
+    # Plot the results!
+    if args.do_burst and B_data:
+        logging.info("plotting survey data")
+        plot_burst_data(B_data, os.path.join(out_root,"burst_data.png"), show_plots = args.int_plots)
+
+    if args.do_survey and S_data:
+        logging.info("plotting burst data")
+        plot_survey_data(S_data,os.path.join(out_root,"survey_data.png"), show_plots = args.int_plots)
+
+
+else:
+    logging.info("No packets loaded -- check input directory?")

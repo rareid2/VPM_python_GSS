@@ -119,7 +119,7 @@ def decode_survey_data(packets):
             else:
                 # If not, put the unused packets aside, so we can possibly
                 # combine with packets from other files
-                unused.append(cur_packets[s1:s2])
+                unused.extend(cur_packets[s1:s2])
 
     # Send it
     logger.info(f'Recovered {len(S_data)} survey products, leaving {len(unused)} unused packets')
