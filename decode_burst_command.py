@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+import struct
 
 def decode_burst_command(cmd):
     '''
@@ -77,3 +78,45 @@ def decode_burst_command(cmd):
             burst_cmd['FFTS_OFF']= 0;
 
     return burst_cmd;
+
+
+def generate_burst_command(burst_config):
+    # The inverse. Pass in a burst configuration, get an appropriate command!
+    cmd_str = np.zeros(24, dtype='uint8')
+
+    cmd_str[0:2] = [0,1]
+    cmd_str[2] = burst_config['TD_FD_SELECT']
+
+
+    cmd_str[3]    = burst_config['WINDOWING']
+    cmd_str[4:8]  = burst_config['WINDOW_MODE']
+    cmd_str[8]    = burst_config['DECIMATE_ON']
+
+    
+    if burst_config['TD_FD_SELECT'] == 1:
+        cmd_str[9:11] = burst_config['DECIMATION_MODE']
+    else:
+        cmd_str[8:24] = [int(x) for x in burst_config['BINS']]
+
+    cmd_str = cmd_str.tobytes()
+
+    return(cmd_str) 
+
+
+if __name__ == "__main__":
+    print("hey")
+    
+    burst_config = dict()
+    burst_config['TD_FD_SELECT'] = 0
+    burst_config['WINDOWING']= 0
+    burst_config['WINDOW_MODE']= 0
+    burst_config['DECIMATE_ON'] = 0
+    burst_config['DECIMATION_MODE'] = 0
+    burst_config['BINS'] = '0000000000000000'
+    burst_config['burst_pulses']=1
+
+    cmd_str = generate_burst_command(burst_config)
+
+
+    print(len(cmd_str))
+    print(cmd_str.encode('hex'))

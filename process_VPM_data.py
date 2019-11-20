@@ -1,6 +1,6 @@
 from decode_packets import decode_packets
 from decode_survey_data import decode_survey_data
-from decode_burst_data import decode_burst_data_by_experiment_number
+from decode_burst_data import decode_burst_data_by_experiment_number, decode_burst_data_in_range, decode_burst_data_between_status_packets
 from decode_status import decode_status
 from plot_survey_data import plot_survey_data
 from plot_burst_data import plot_burst_data
@@ -13,6 +13,8 @@ import os
 import numpy as np
 import pickle
 import shutil
+import datetime
+import dateutil
 import logging
 
 
@@ -20,10 +22,16 @@ import logging
 #  ----------- Parse input configuration -------------
 
 parser = argparse.ArgumentParser(description="VPM Ground Support Software")
-parser.add_argument("--in_dir",  required=True, type=str, default = 'input', help="path to directory of .tlm files")
+parser.add_argument("--in_dir",  required=False, type=str, default = None, help="path to directory of .tlm files")
 parser.add_argument("--out_dir", required=False, type=str, default='output', help="path to output directory")
 parser.add_argument("--workfile", required=False, type=str, default="in_progress.pkl", help="file to store unused packets (a pickle file)")
 parser.add_argument("--previous_pkl_file", required=False, type=str, default=None, help="filename of previously-decoded packets (packets.pkl)")
+parser.add_argument("--t1", action='append', help='burst packet start time', required=False)
+parser.add_argument("--t2", action='append', help='burst packet stop time',  required=False)
+# parser.add_argument("--burst_cmd", required=False, type=str, default=None, help="Manually-assigned burst command, in hex; overrides any found commands")
+# parser.add_argument("--n_pulses", required=False, type=int, default=1, help="Manually-assigned burst_pulses; overrides any found commands")
+
+# parser.add_argument("--burst_cmd")
 
 g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--save_xml", dest='do_xml', action='store_true', help="save decoded data in XML files")
@@ -69,6 +77,9 @@ g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--interactive_plots", dest='int_plots', action='store_true', help ="Show plots")
 g.set_defaults(int_plots=False)
 
+g = parser.add_mutually_exclusive_group(required=False)
+g.add_argument("--identify_bursts_by_status_packets", dest='status_packets', action='store_true', help ="Identify burst experiments using status packets, which are sent before and after each burst")
+g.set_defaults(status_packets=False)
 
 args = parser.parse_args()
 data_root = args.in_dir
@@ -76,8 +87,9 @@ out_root  = args.out_dir
 in_progress_file = args.workfile
 
 #  ----------- Check input directory -------------
-if not os.path.isdir(data_root):
-    raise ValueError("Invalid input directory")
+if args.in_dir is not None:
+    if not os.path.isdir(data_root):
+        raise ValueError("Invalid input directory")
 
 #  ----------- Check output directory ------------
 if not os.path.exists(out_root):
@@ -106,6 +118,8 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 np.seterr(divide='ignore')
 
 packets = []
+
+
 
 # ---------- Load previously-decoded packets ------------
 if args.previous_pkl_file is not None:
@@ -152,6 +166,8 @@ else:
             pickle.dump(packets, f)
 
 
+
+# ----------------- Process any packets we have -------------
 if packets:
     # Run the packet inspector tool, if requested
     if args.packet_inspector:
@@ -160,9 +176,22 @@ if packets:
     outs = dict()
 
     if args.do_burst:
+        # Three different burst decoding methods to choose from:
         logging.info("Decoding burst data")
-        B_data, unused_burst = decode_burst_data_by_experiment_number(packets, debug_plots=args.packet_inspector)
-        outs['burst'] = B_data
+        if args.status_packets:
+            logging.info(f'Processing bursts between status packets')
+            B_data, unused_burst = decode_burst_data_between_status_packets(packets, debug_plots=args.packet_inspector)
+
+        elif args.t1 and args.t2:
+            t1 = dateutil.parser.parse(args.t1[0]).replace(tzinfo=datetime.timezone.utc)
+            t2 = dateutil.parser.parse(args.t2[0]).replace(tzinfo=datetime.timezone.utc)
+            logging.info(f'Processing bursts between {t1} and {t2}')
+            B_data, unused_burst = decode_burst_data_in_range(packets, t1.timestamp(), t2.timestamp(), debug_plots=args.packet_inspector)
+
+        else:
+            logging.info(f'Processing bursts by experiment number')
+            B_data, unused_burst = decode_burst_data_by_experiment_number(packets, debug_plots=args.packet_inspector)
+            outs['burst'] = B_data
 
     if args.do_survey:
         logging.info("Decoding survey data")
@@ -216,11 +245,11 @@ if packets:
 
     # Plot the results!
     if args.do_burst and B_data:
-        logging.info("plotting survey data")
+        logging.info("plotting burst data")
         plot_burst_data(B_data, os.path.join(out_root,"burst_data.png"), show_plots = args.int_plots)
 
     if args.do_survey and S_data:
-        logging.info("plotting burst data")
+        logging.info("plotting survey data")
         plot_survey_data(S_data,os.path.join(out_root,"survey_data.png"), show_plots = args.int_plots)
 
 

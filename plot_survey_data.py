@@ -6,6 +6,9 @@ from matplotlib.gridspec import GridSpec
 import matplotlib.dates as mdates
 import scipy.signal
 from parula_colormap import parula
+import logging
+import argparse
+
 
 
 
@@ -136,12 +139,30 @@ def plot_survey_data(S_data, filename="survey_data.pdf", show_plots=False):
 
 if __name__ == '__main__':
 
-    print("plotting survey data...")
-    # Load decoded data:
-    with open("decoded_data.pkl","rb") as f:
-        d = pickle.load(f)
-    print(d.keys())
+    parser = argparse.ArgumentParser(description="VPM Ground Support Software")
 
-    S_data = d['survey']
+    parser.add_argument("--in_dir",  required=True, type=str, default = 'input', help="path to directory of .tlm files")
+    parser.add_argument("--out_dir", required=False, type=str, default='output', help="path to output directory")
 
-    plot_survey_data(S_data, "survey_data.pdf")
+    g = parser.add_mutually_exclusive_group(required=False)
+    g.add_argument("--debug", dest='debug', action='store_true', help ="Debug mode (extra chatty)")
+    g.set_defaults(debug=False)
+
+    args = parser.parse_args()
+
+    #  ----------- Start the logger -------------
+    # log_filename = os.path.join(out_root, 'log.txt')
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO,  format='[%(name)s]\t%(levelname)s\t%(message)s')
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+    # print("plotting survey data...")
+    # # Load decoded data:
+    # with open("decoded_data.pkl","rb") as f:
+    #     d = pickle.load(f)
+    # print(d.keys())
+
+    # S_data = d['survey']
+
+    # plot_survey_data(S_data, "survey_data.pdf")
