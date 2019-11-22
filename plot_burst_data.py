@@ -285,21 +285,23 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
-    logging.getLogger('matplotlib').setLevel(logging.WARNING)
-
-    print("plotting burst data...")
 
     parser = argparse.ArgumentParser(description="VPM Ground Support Software\nBurst Plotter")
     
     parser.add_argument("--inp","--in","-i",  required=False, type=str, default = "decoded_data.pkl", help="input file (pickle, xml, or netCDF)")
     parser.add_argument("--out","--output","-o",  required=False, type=str, default = "burst.png", help="output filename. Suffix defines the file type (png, jpg)")
+    parser.add_argument("--logfile", required=False, type=str, default=None, help="log filename. If not provided, output is logged to console")
 
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument("--interactive_plots", dest='int_plots', action='store_true', help ="Show plots interactively")
     g.set_defaults(int_plots=False)
 
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG, filename = args.logfile, format='[%(name)s]\t%(levelname)s\t%(message)s')
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
+    logging.info("plotting burst data...")
 
     infile = args.inp
     outfile = args.out

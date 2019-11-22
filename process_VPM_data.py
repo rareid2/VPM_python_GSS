@@ -25,11 +25,13 @@ parser = argparse.ArgumentParser(description="VPM Ground Support Software")
 parser.add_argument("--in_dir",  required=False, type=str, default = None, help="path to directory of .tlm files")
 parser.add_argument("--out_dir", required=False, type=str, default='output', help="path to output directory")
 parser.add_argument("--workfile", required=False, type=str, default="in_progress.pkl", help="file to store unused packets (a pickle file)")
-parser.add_argument("--previous_pkl_file", required=False, type=str, default=None, help="filename of previously-decoded packets (packets.pkl)")
+parser.add_argument("--previous_pkl_file", required=False, type=str, default=None, help="filename of previously-decoded packets to process, rather than a directory of .TLM files (packets.pkl)")
 parser.add_argument("--t1", action='append', help='burst packet start time. MM-DD-YYYYTHH:MM:SS', required=False)
 parser.add_argument("--t2", action='append', help='burst packet stop time. MM-DD-YYYYTHH:MM:SS',  required=False)
 parser.add_argument("--burst_cmd", required=False, type=str, default=None, help="Manually-assigned burst command, in hex; overrides any found commands")
 parser.add_argument("--n_pulses", required=False, type=int, default=1, help="Manually-assigned burst_pulses; overrides any found commands")
+
+parser.add_argument("--logfile", required=False, type=str, default=None, help="log filename. If not provided, output is logged to console")
 
 g = parser.add_mutually_exclusive_group(required=False)
 # g.add_argument("--save_xml", dest='do_xml', action='store_true', help="save decoded data in XML files")
@@ -48,7 +50,7 @@ g.set_defaults(do_netcdf=False)
 
 g = parser.add_mutually_exclusive_group(required=False)
 # g.add_argument("--include_previous_data",dest='do_previous', action='store_true',  help="Load and include previously-decoded data, which was not processed")
-g.add_argument("--ignore_previous_data", dest='do_previous', action='store_false', help="Do not include previously-decoded, but unprocessed data")
+g.add_argument("--ignore_previous_data", dest='do_previous', action='store_false', help="Do not include previously-decoded but unprocessed data (packets stored in WORKFILE)")
 g.set_defaults(do_previous=True)
 
 g = parser.add_mutually_exclusive_group(required=False)
@@ -108,9 +110,9 @@ if not os.path.exists(processed_dir):
 #  ----------------- Start the logger ------------------
 # log_filename = os.path.join(out_root, 'log.txt')
 if args.debug:
-    logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
+    logging.basicConfig(level=logging.DEBUG, filename = args.logfile, format='[%(name)s]\t%(levelname)s\t%(message)s')
 else:
-    logging.basicConfig(level=logging.INFO,  format='[%(name)s]\t%(levelname)s\t%(message)s')
+    logging.basicConfig(level=logging.INFO, filename = args.logfile, format='[%(name)s]\t%(levelname)s\t%(message)s')
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 # Ignore divide-by-zero errors (which happen in plotting log-scaled spectrograms)
