@@ -17,7 +17,7 @@ def remove_trailing_nans(arr1d):
     notnans = np.flatnonzero(~np.isnan(arr1d))
     if notnans.size:
         # Trim leading and trailing:
-#         trimmed = arr1d[notnans[0]: notnans[-1]+1]  # slice from first not-nan to the last one
+        # trimmed = arr1d[notnans[0]: notnans[-1]+1]  # slice from first not-nan to the last one
         # Trim trailing only
         trimmed = arr1d[0:notnans[-1]+1]  # slice from first not-nan to the last one
     else:
@@ -86,10 +86,12 @@ def decode_burst_data_by_experiment_number(packets, burst_cmd = None, burst_puls
 
     completed_bursts = []
 
-    if burst_cmd:
-        # Use externally-provided burst command
+    if burst_cmd is not None:
+        # Use externally-provided burst command, if present
         burst_config = decode_burst_command(burst_cmd)
         burst_config['burst_pulses'] = burst_pulses
+    else:
+        burst_config = None
 
     for e_num in avail_exp_nums:
         logger.info(f"processing experiment number {e_num}")
@@ -101,7 +103,7 @@ def decode_burst_data_by_experiment_number(packets, burst_cmd = None, burst_puls
         if debug_plots:
             packet_inspector(current_packets)
             
-        processed = process_burst(current_packets, burst_cmd)
+        processed = process_burst(current_packets, burst_config)
         processed['header_timestamp'] = header_timestamps[0]
 
         completed_bursts.append(processed)
@@ -110,8 +112,6 @@ def decode_burst_data_by_experiment_number(packets, burst_cmd = None, burst_puls
     unused_packets = burst_packets
     logger.info(f"returning {len(burst_packets)} unused burst packets")
     return completed_bursts, unused_packets
-
-
 
 def decode_burst_data_in_range(packets, ta, tb, burst_cmd = None, burst_pulses = None, debug_plots=False):
     ''' decode burst data between a given time interval, with a given command.
@@ -134,6 +134,13 @@ def decode_burst_data_in_range(packets, ta, tb, burst_cmd = None, burst_pulses =
     max_timestamp = max(header_timestamps)
     logger.info(f'packet timestamps range betwen {datetime.datetime.utcfromtimestamp(min_timestamp)} and {datetime.datetime.utcfromtimestamp(max_timestamp)}')
 
+    if burst_cmd is not None:
+        # Use externally-provided burst command, if present
+        burst_config = decode_burst_command(burst_cmd)
+        burst_config['burst_pulses'] = burst_pulses
+    else:
+        burst_config = None
+
     for e_num in avail_exp_nums:
         logger.info(f"processing experiment number {e_num}")
 
@@ -146,7 +153,7 @@ def decode_burst_data_in_range(packets, ta, tb, burst_cmd = None, burst_pulses =
             logger.info(f"processing burst betweeen times: {datetime.datetime.utcfromtimestamp(ta),datetime.datetime.utcfromtimestamp(tb)}")
 
 
-            processed = process_burst(current_packets)
+            processed = process_burst(current_packets, burst_config)
 
             processed['ta'] = ta
             processed['tb'] = tb
@@ -171,13 +178,11 @@ def decode_burst_data_between_status_packets(packets, debug_plots=False):
     I_packets     = sorted(I_packets, key = lambda p: p['header_timestamp'])
     burst_packets = list(filter(lambda packet: packet['dtype'] in ['E','B','G'], packets))
     burst_packets = sorted(burst_packets, key = lambda p: p['header_timestamp'])
-    stats = decode_status(I_packets)
+    # stats = decode_status(I_packets)
 
-    if debug_plots:
-        packet_inspector(packets)
 
     avail_exp_nums = np.unique([x['exp_num'] for x in burst_packets])
-
+    logging.info(f"exp nums in dataset: {avail_exp_nums}")
     completed_bursts = []
 
     status_times = np.array(sorted([IP['header_timestamp'] for IP in I_packets]))
@@ -198,7 +203,7 @@ def decode_burst_data_between_status_packets(packets, debug_plots=False):
         if any(IA_cmd != IB_cmd):
             continue
 
-        # Try processing each experiment number between the status packets
+        # (At this point, there will be only one available experiment number)
         for e_num in avail_exp_nums:
             filt_inds = [p['header_timestamp'] >= ta and p['header_timestamp'] <= tb for p in burst_packets]
             packets_in_time_range = list(itertools.compress(burst_packets, filt_inds))
@@ -210,6 +215,10 @@ def decode_burst_data_between_status_packets(packets, debug_plots=False):
             if len(packets_in_time_range) > 100:
                 logger.info(f'------ exp num {e_num} ------')
                 logger.info(f"status packet times: {datetime.datetime.utcfromtimestamp(ta),datetime.datetime.utcfromtimestamp(tb)}")
+
+                if debug_plots:
+                    logging.info("Showing packet inspector for current")
+                    packet_inspector(packets_in_time_range + [IA, IB])
 
                 # Ok! Now we have a list of packets, all with a common experiment number, 
                 # in between two status packets, each with have the same burst command.
@@ -240,6 +249,7 @@ def decode_burst_data_between_status_packets(packets, debug_plots=False):
                 processed['header_timestamp'] = ta
                 completed_bursts.append(processed)
 
+                
                 # Remove processed packets from data_dict
                 burst_packets = list(itertools.compress(burst_packets, np.logical_not(filt_inds)))
                 I_packets.remove(IA)

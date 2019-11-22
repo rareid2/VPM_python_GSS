@@ -4,6 +4,7 @@ import xml.dom.minidom as MD
 import numpy as np
 import datetime
 import os
+import logging
 
 def write_survey_netCDF(data, filename='survey_data.nc'):
     '''
@@ -338,33 +339,63 @@ def write_burst_XML(in_data, filename='burst_data.xml'):
 def read_burst_XML(filename):   
     ''' Reads burst elements from an xml file. '''
 
+    logger = logging.getLogger(__name__)
+
     # Open it
     with open(filename,'r') as f:
         tree = ET.parse(f)
     
     outs = []
     
-    # Process all "survey" elements
+    # Process all "burst" elements
     for S in tree.findall('burst'):
         d = dict()
-        ER = np.fromstring(S.find('E_data').find('real').text, dtype='int16', sep=',')
-        EI = np.fromstring(S.find('E_data').find('imag').text, dtype='int16', sep=',')
-        d['E_data'] = ER + 1j*EI
-        
-        BR = np.fromstring(S.find('B_data').find('real').text, dtype='int16', sep=',')
-        BI = np.fromstring(S.find('B_data').find('imag').text, dtype='int16', sep=',')
-        d['B_data'] = BR + 1j*BI
+        TD_FD_SELECT = S.find('config').find('TD_FD_SELECT').text
 
+        # Load configuration
+        d['config'] = dict()
+        for el in S.find('config'):
+            # print(cfg)
+            # print(el.tag, el.text)
+            # # for el in cfg:
+                # print(el.name, el.text)
+            if el.tag in ['str', 'BINS']:
+                d['config'][el.tag] = el.text
+            else:
+                d['config'][el.tag] = int(el.text)
+        print(d['config'].keys())
 
-        d['GPS'] = []
-        G = S.findall('GPS')
+        # Load data fields
+        if TD_FD_SELECT == '1':
+            # Time domain
+            d['E'] = np.fromstring(S.find('E_data').text, dtype='int16', sep=',')
+            d['B'] = np.fromstring(S.find('B_data').text, dtype='int16', sep=',')
 
-        for el in G:
-            try:
-                d['GPS'][el.tag] = int(el.text)
-            except:
-                d['GPS'][el.tag] = float(el.text)
+        elif TD_FD_SELECT == '0':
+            # Frequency domain
+            ER = np.fromstring(S.find('E_data').find('real').text, dtype='int16', sep=',')
+            EI = np.fromstring(S.find('E_data').find('imag').text, dtype='int16', sep=',')
+            d['E'] = ER + 1j*EI
+            
+            BR = np.fromstring(S.find('B_data').find('real').text, dtype='int16', sep=',')
+            BI = np.fromstring(S.find('B_data').find('imag').text, dtype='int16', sep=',')
+            d['B'] = BR + 1j*BI
+
+        logger.info(f"loaded E data of size {len(d['E'])}")
+        logger.info(f"loaded B data of size {len(d['B'])}")
+
+        # Load GPS data
+        d['G'] = []
+        for g in S.find('GPS'):
+            tmp_dict = dict()
+            for el in g:
+                try:
+                    tmp_dict[el.tag] = int(el.text)
+                except:
+                    tmp_dict[el.tag] = float(el.text)
+            d['G'].append(tmp_dict)
         outs.append(d)
+        logger.info(f"loaded {len(d['G'])} GPS elements")
 
     # Return a list of dicts
     return outs

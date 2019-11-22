@@ -26,30 +26,28 @@ parser.add_argument("--in_dir",  required=False, type=str, default = None, help=
 parser.add_argument("--out_dir", required=False, type=str, default='output', help="path to output directory")
 parser.add_argument("--workfile", required=False, type=str, default="in_progress.pkl", help="file to store unused packets (a pickle file)")
 parser.add_argument("--previous_pkl_file", required=False, type=str, default=None, help="filename of previously-decoded packets (packets.pkl)")
-parser.add_argument("--t1", action='append', help='burst packet start time', required=False)
-parser.add_argument("--t2", action='append', help='burst packet stop time',  required=False)
-# parser.add_argument("--burst_cmd", required=False, type=str, default=None, help="Manually-assigned burst command, in hex; overrides any found commands")
-# parser.add_argument("--n_pulses", required=False, type=int, default=1, help="Manually-assigned burst_pulses; overrides any found commands")
-
-# parser.add_argument("--burst_cmd")
+parser.add_argument("--t1", action='append', help='burst packet start time. MM-DD-YYYYTHH:MM:SS', required=False)
+parser.add_argument("--t2", action='append', help='burst packet stop time. MM-DD-YYYYTHH:MM:SS',  required=False)
+parser.add_argument("--burst_cmd", required=False, type=str, default=None, help="Manually-assigned burst command, in hex; overrides any found commands")
+parser.add_argument("--n_pulses", required=False, type=int, default=1, help="Manually-assigned burst_pulses; overrides any found commands")
 
 g = parser.add_mutually_exclusive_group(required=False)
-g.add_argument("--save_xml", dest='do_xml', action='store_true', help="save decoded data in XML files")
+# g.add_argument("--save_xml", dest='do_xml', action='store_true', help="save decoded data in XML files")
 g.add_argument("--no_xml", dest='do_xml', action='store_false', help="do not generate output XML files")
 g.set_defaults(do_xml=True)
 
 g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--save_pkl", dest='do_pickle', action='store_true', help="save decoded data as python Pickle files")
-g.add_argument("--no_pkl", dest='do_pickle',   action='store_false', help="do not generate output pickle files")
+# g.add_argument("--no_pkl", dest='do_pickle',   action='store_false', help="do not generate output pickle files")
 g.set_defaults(do_pickle=False)
 
 g = parser.add_mutually_exclusive_group(required=False)
 g.add_argument("--save_netcdf", dest='do_netcdf', action='store_true', help="save decoded data in netCDF files")
-g.add_argument("--no_netcdf", dest='do_netcdf', action='store_false', help="do not generate output netCDF files")
+# g.add_argument("--no_netcdf", dest='do_netcdf', action='store_false', help="do not generate output netCDF files")
 g.set_defaults(do_netcdf=False)
 
 g = parser.add_mutually_exclusive_group(required=False)
-g.add_argument("--include_previous_data",dest='do_previous', action='store_true', help="Load and include previously-decoded data, which was not processed")
+# g.add_argument("--include_previous_data",dest='do_previous', action='store_true',  help="Load and include previously-decoded data, which was not processed")
 g.add_argument("--ignore_previous_data", dest='do_previous', action='store_false', help="Do not include previously-decoded, but unprocessed data")
 g.set_defaults(do_previous=True)
 
@@ -74,7 +72,7 @@ g.add_argument("--packet_inspector", dest='packet_inspector', action='store_true
 g.set_defaults(packet_inspector=False)
 
 g = parser.add_mutually_exclusive_group(required=False)
-g.add_argument("--interactive_plots", dest='int_plots', action='store_true', help ="Show plots")
+g.add_argument("--interactive_plots", dest='int_plots', action='store_true', help ="Show plots interactively")
 g.set_defaults(int_plots=False)
 
 g = parser.add_mutually_exclusive_group(required=False)
@@ -85,6 +83,7 @@ args = parser.parse_args()
 data_root = args.in_dir
 out_root  = args.out_dir
 in_progress_file = args.workfile
+
 
 #  ----------- Check input directory -------------
 if args.in_dir is not None:
@@ -106,7 +105,7 @@ if not os.path.exists(processed_dir):
         raise ValueError("Invalid output directory")
 
 
-#  ----------- Start the logger -------------
+#  ----------------- Start the logger ------------------
 # log_filename = os.path.join(out_root, 'log.txt')
 if args.debug:
     logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
@@ -119,8 +118,18 @@ np.seterr(divide='ignore')
 
 packets = []
 
+# ------------------ Validate inputs --------------------
 
-
+if args.burst_cmd:
+    try:
+        logging.info(f"using externally-assigned burst command 0x{args.burst_cmd}")
+        burst_cmd = [int(x) for x in int(args.burst_cmd,16).to_bytes(3,'big')]
+        burst_cmd = np.array(burst_cmd, dtype='uint8')
+        logging.info(f"Burst command as ints = {burst_cmd}")
+    except:
+        raise ValueError("Cannot parse burst command ")
+else:
+    burst_cmd = None
 # ---------- Load previously-decoded packets ------------
 if args.previous_pkl_file is not None:
     with open(os.path.join(out_root,args.previous_pkl_file),'rb') as f:
@@ -159,6 +168,7 @@ else:
                     logging.info(f'loaded {len(packets_in_progress)} in-progress packets')
                     packets.extend(packets_in_progress)
 
+        
 
         # Save the decoded packets as an interstitial step 
         # (This isn't used anywhere, aside from module tests)
@@ -169,8 +179,12 @@ else:
 
 # ----------------- Process any packets we have -------------
 if packets:
+
+    packets = sorted(packets, key = lambda p: p['header_timestamp'])
+
     # Run the packet inspector tool, if requested
     if args.packet_inspector:
+        logging.info("Showing packet inspector for entire packet set")
         packet_inspector(packets)
 
     outs = dict()
@@ -179,19 +193,28 @@ if packets:
         # Three different burst decoding methods to choose from:
         logging.info("Decoding burst data")
         if args.status_packets:
+            # Decode by binning burst packets between two adjacent status packets,
+            # which are automatically requested at the beginning and end of a burst
             logging.info(f'Processing bursts between status packets')
             B_data, unused_burst = decode_burst_data_between_status_packets(packets, debug_plots=args.packet_inspector)
 
         elif args.t1 and args.t2:
+            # Manually bin burst packets between two timestamps
             t1 = dateutil.parser.parse(args.t1[0]).replace(tzinfo=datetime.timezone.utc)
             t2 = dateutil.parser.parse(args.t2[0]).replace(tzinfo=datetime.timezone.utc)
             logging.info(f'Processing bursts between {t1} and {t2}')
-            B_data, unused_burst = decode_burst_data_in_range(packets, t1.timestamp(), t2.timestamp(), debug_plots=args.packet_inspector)
+            B_data, unused_burst = decode_burst_data_in_range(packets,
+                                   t1.timestamp(), t2.timestamp(),
+                                   burst_cmd = burst_cmd, burst_pulses = args.n_pulses,
+                                   debug_plots=args.packet_inspector)
 
         else:
+            # Bin bursts by experiment number
             logging.info(f'Processing bursts by experiment number')
-            B_data, unused_burst = decode_burst_data_by_experiment_number(packets, debug_plots=args.packet_inspector)
-            outs['burst'] = B_data
+            B_data, unused_burst = decode_burst_data_by_experiment_number(packets, 
+                                   burst_cmd = burst_cmd, burst_pulses = args.n_pulses,
+                                   debug_plots=args.packet_inspector)
+        outs['burst'] = B_data
 
     if args.do_survey:
         logging.info("Decoding survey data")
@@ -216,7 +239,7 @@ if packets:
                 pickle.dump(unused, f)
 
 
-    # Store the output data:
+    # -------------- Store the output data -----------------
     # 1. as a Pickle file
     if args.do_pickle:
         with open(os.path.join(out_root,'decoded_data.pkl'),'wb') as f:
@@ -224,17 +247,21 @@ if packets:
 
     # 2. as XML files
     if args.do_xml:
-        logging.info("writing burst xml")
-        write_burst_XML(outs['burst'], os.path.join(out_root,'burst_data.xml'))
-        logging.info("writing survey xml")
-        write_survey_XML(outs['survey'], os.path.join(out_root,'survey_data.xml'))
+        if 'burst' in outs:
+            logging.info("writing burst xml")
+            write_burst_XML(outs['burst'], os.path.join(out_root,'burst_data.xml'))
+        if 'survey' in outs:
+            logging.info("writing survey xml")
+            write_survey_XML(outs['survey'], os.path.join(out_root,'survey_data.xml'))
 
     # 3. as netCDF files
     if args.do_netcdf:
-        logging.info("writing burst netCDF")
-        write_burst_netCDF(outs['burst'], os.path.join(out_root,'burst_data.nc'))
-        logging.info("writing survey netCDF")
-        write_survey_netCDF(outs['survey'], os.path.join(out_root,'survey_data.nc'))
+        if 'burst' in outs:
+            logging.info("writing burst netCDF")
+            write_burst_netCDF(outs['burst'], os.path.join(out_root,'burst_data.nc'))
+        if 'survey' in outs:
+            logging.info("writing survey netCDF")
+            write_survey_netCDF(outs['survey'], os.path.join(out_root,'survey_data.nc'))
 
     # Write any status packets to a text file:
     if stats:

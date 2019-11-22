@@ -67,6 +67,10 @@ def onpick(event, packets):
         if packets[x]['dtype']=='I':
             stat = decode_status([packets[x]])
             print(stat[0])
+            # Get burst configuration parameters:
+            cmd = np.flip(packets[x]['data'][12:15])
+            burst_config = decode_burst_command(cmd)
+            print(burst_config)
 
         if (packets[x]['dtype']=='G') and (packets[x]['start_ind']==0):
             # First GPS packet -- burst command is echoed here

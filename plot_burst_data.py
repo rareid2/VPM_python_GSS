@@ -8,6 +8,8 @@ import scipy.signal
 import os
 from parula_colormap import parula
 import logging
+import argparse
+from file_handlers import read_burst_XML
 
 
 def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
@@ -287,13 +289,32 @@ if __name__ == '__main__':
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
     print("plotting burst data...")
-    # Load decoded data:
-    # with open("decoded_data.pkl","rb") as f:
-    with open("output/decoded_data.pkl","rb") as f:
-        d = pickle.load(f)
 
-    print(d.keys())
+    parser = argparse.ArgumentParser(description="VPM Ground Support Software\nBurst Plotter")
+    
+    parser.add_argument("--inp","--in","-i",  required=False, type=str, default = "decoded_data.pkl", help="input file (pickle, xml, or netCDF)")
+    parser.add_argument("--out","--output","-o",  required=False, type=str, default = "burst.png", help="output filename. Suffix defines the file type (png, jpg)")
 
-    B_data = d['burst']
+    g = parser.add_mutually_exclusive_group(required=False)
+    g.add_argument("--interactive_plots", dest='int_plots', action='store_true', help ="Show plots interactively")
+    g.set_defaults(int_plots=False)
 
-    plot_burst_data(B_data, "burst_data.png")
+    args = parser.parse_args()
+
+    infile = args.inp
+    outfile = args.out
+
+    infile_parts = os.path.splitext(infile)
+
+    logging.info(f'Loading {infile}')
+
+    if infile_parts[-1] =='.pkl':
+        with open(infile,"rb") as f:
+            d = pickle.load(f)
+            B_data = d['burst']
+    elif infile_parts[-1] == '.xml':
+        B_data = read_burst_XML(infile)
+    elif infile_parts[-1] == '.nc':
+        logging.warning("reading netCDFs not yet implemented!")
+
+    plot_burst_data(B_data, outfile, show_plots = args.int_plots)
