@@ -209,6 +209,33 @@ def write_burst_netCDF(data_in, filename='burst_data.nc'):
             latency[i] = G['latency']
         f.close()
 
+def write_status_XML(in_data, filename="status_messages.xml"):
+    '''write status messages to an xml file'''
+
+    in_data = sorted(in_data, key=lambda k: k['header_timestamp'])
+    d = ET.Element('status_messages')
+    d.set('file_creation_date', datetime.datetime.now(datetime.timezone.utc).isoformat())
+
+    for entry_data in in_data:
+        entry = ET.SubElement(d,'status')
+        entry.set('header_timestamp',datetime.datetime.utcfromtimestamp(entry_data['header_timestamp']).isoformat())
+
+        for k, v in entry_data.items():
+            # (This is a prime place for some recursion, if you wanted to show off)
+            if isinstance(v,dict):
+                sub_entry = ET.SubElement(entry,k)
+                for kk, vv in v.items():
+                    cur_item = ET.SubElement(sub_entry,kk)
+                    cur_item.text = str(vv)
+            else:                
+                cur_item = ET.SubElement(entry,k)
+                cur_item.text = str(v)        
+
+    rough_string = ET.tostring(d, 'utf-8')
+    reparsed = MD.parseString(rough_string).toprettyxml(indent="\t")
+
+    with open(filename, "w") as f:
+        f.write(reparsed)
 
 def write_survey_XML(in_data, filename='survey_data.xml'):
     ''' Write a list of survey elements to an xml file. '''
@@ -223,7 +250,9 @@ def write_survey_XML(in_data, filename='survey_data.xml'):
     d.set('file_creation_date', datetime.datetime.now(datetime.timezone.utc).isoformat())
 
     for entry_data in in_data:
+
         entry = ET.SubElement(d, 'survey')
+        entry.set('header_timestamp',datetime.datetime.utcfromtimestamp(entry_data['header_timestamp']).isoformat())
         E_elem = ET.SubElement(entry, 'E_data')
         B_elem = ET.SubElement(entry, 'B_data')
         GPS_elem= ET.SubElement(entry,'GPS')
@@ -232,6 +261,7 @@ def write_survey_XML(in_data, filename='survey_data.xml'):
 
 
         for k, v in entry_data['GPS'][0].items():
+
             cur_item = ET.SubElement(GPS_elem,k)
             cur_item.text = str(v)
         header_entry = ET.SubElement(GPS_elem,'header_timestamp')
@@ -281,7 +311,7 @@ def write_burst_XML(in_data, filename='burst_data.xml'):
     for entry_data in in_data:
         entry = ET.SubElement(d, 'burst')
         entry.set('header_timestamp',datetime.datetime.utcfromtimestamp(entry_data['header_timestamp']).isoformat())
-        cfg = ET.SubElement(entry, 'config')
+        cfg = ET.SubElement(entry, 'burst_config')
         gps = ET.SubElement(entry, 'GPS')
         for k, v in entry_data['config'].items():
             cur_item = ET.SubElement(cfg,k)
@@ -354,7 +384,7 @@ def read_burst_XML(filename):
 
         # Load configuration
         d['config'] = dict()
-        for el in S.find('config'):
+        for el in S.find('burst_config'):
             # print(cfg)
             # print(el.tag, el.text)
             # # for el in cfg:

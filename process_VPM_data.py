@@ -4,7 +4,7 @@ from decode_burst_data import decode_burst_data_by_experiment_number, decode_bur
 from decode_status import decode_status
 from plot_survey_data import plot_survey_data
 from plot_burst_data import plot_burst_data
-from file_handlers import write_burst_XML, write_survey_XML
+from file_handlers import write_burst_XML, write_survey_XML, write_status_XML
 from file_handlers import write_burst_netCDF, write_survey_netCDF
 from packet_inspector import packet_inspector
 import random
@@ -191,6 +191,10 @@ if packets:
 
     outs = dict()
 
+    logging.info("Decoding status messages")
+    stats = decode_status(packets)
+    outs['status'] = stats
+
     if args.do_burst:
         # Three different burst decoding methods to choose from:
         logging.info("Decoding burst data")
@@ -223,9 +227,6 @@ if packets:
         S_data, unused_survey = decode_survey_data(packets)
         outs['survey'] = S_data
 
-    logging.info("Decoding status messages")
-    stats = decode_status(packets)
-    outs['status'] = stats
 
     # Delete previous unused packet file -- they've either
     # been processed by this point, or are in the new unused list
@@ -265,12 +266,13 @@ if packets:
             logging.info("writing survey netCDF")
             write_survey_netCDF(outs['survey'], os.path.join(out_root,'survey_data.nc'))
 
-    # Write any status packets to a text file:
+    # Write any status packets to an XML file
     if stats:
         logging.info("writing status messages")
-        with open(os.path.join(out_root,'status_messages.txt'),'w') as f:
-            for st in stats:
-                f.write(st)
+        write_status_XML(stats,os.path.join(out_root,"status_messages.xml"))
+        # with open(os.path.join(out_root,'status_messages.txt'),'w') as f:
+        #     for st in stats:
+        #         f.write(st)
 
     # Plot the results!
     if args.do_burst and B_data:

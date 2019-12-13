@@ -103,6 +103,30 @@ def generate_burst_command(burst_config):
     return(cmd_str) 
 
 
+def decode_uBBR_command(cmd):
+    '''decode commands sent to the uBBR (passed as 3 uint8s)'''
+    
+    logger = logging.getLogger(__name__)
+
+    cmd_str = ''.join("{0:8b}".format(x) for x in cmd).replace(' ','0')[::-1]
+    
+    if len(cmd_str)!=24:
+        logger.warning("invalid uBBR command length")
+    if not (cmd_str[23]=='1' and cmd_str[22] == '0'):
+        logger.warning("invalid uBBR header")
+
+    out = dict()
+    parms = ['E_FILT','B_FILT','E_CAL','B_CAL','E_PRE','B_PRE','E_RST','B_RST','E_GAIN','B_GAIN','CALTONE','SIG_GEN','TONETYPE']
+    inds  = [21,      20,      19,     18,     17,      16,     15,    14,     13,       12,     11,       10,       9 ]
+
+    out['TONESTEP'] = int(cmd_str[1:9],2)  # Pretty sure byte zero is unused...
+    for parm, ind in zip(parms,inds):
+        out[parm] = cmd_str[ind]    
+    
+    return out
+
+
+
 if __name__ == "__main__":
     print("hey")
     
