@@ -30,7 +30,7 @@ parser.add_argument("--t1", action='append', help='burst packet start time. MM-D
 parser.add_argument("--t2", action='append', help='burst packet stop time. MM-DD-YYYYTHH:MM:SS',  required=False)
 parser.add_argument("--burst_cmd", required=False, type=str, default=None, help="Manually-assigned burst command, in hex; overrides any found commands")
 parser.add_argument("--n_pulses", required=False, type=int, default=1, help="Manually-assigned burst_pulses; overrides any found commands")
-
+parser.add_argument("--calfile","--cal_file","--cal", required=False, type=str, default="calibration_data.pkl", help="Path to calibration data (a .pkl file). If no data provided, plots will reference volts at the ADCs")
 parser.add_argument("--logfile", required=False, type=str, default=None, help="log filename. If not provided, output is logged to console")
 
 g = parser.add_mutually_exclusive_group(required=False)
@@ -235,7 +235,12 @@ if packets:
             os.remove(in_progress_file)
 
         # Store any unused survey packets
-        unused = unused_survey + unused_burst
+        unused = []
+        if args.do_survey:
+            unused += unused_survey
+        if args.do_burst:
+            unused += unused_burst
+        # unused = unused_survey + unused_burst
         if unused:
             logging.info(f"Storing {len(unused)} unused packets")
             with open(in_progress_file,'wb') as f:
@@ -277,7 +282,7 @@ if packets:
     # Plot the results!
     if args.do_burst and B_data:
         logging.info("plotting burst data")
-        plot_burst_data(B_data, os.path.join(out_root,"burst_data.png"), show_plots = args.int_plots)
+        plot_burst_data(B_data, os.path.join(out_root,"burst_data.png"), show_plots = args.int_plots, cal_file=args.calfile)
 
     if args.do_survey and S_data:
         logging.info("plotting survey data")

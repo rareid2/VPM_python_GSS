@@ -10,10 +10,12 @@ from parula_colormap import parula
 import logging
 import argparse
 from file_handlers import read_burst_XML
+from decode_status import decode_status
+from decode_burst_command import decode_uBBR_command
+import pickle
 
-
-def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
-
+def plot_burst_data(B_data, filename="burst_data.png", show_plots=False, cal_file = None):
+    
     logger = logging.getLogger(__name__)
 
     # --------------- Latex Plot Beautification --------------------------
@@ -31,6 +33,14 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
     plt.rcParams.update(params)
     # --------------- Latex Plot Beautification --------------------------
 
+    if cal_file:    
+        try:
+            with open(cal_file,'rb') as file:
+                logger.debug(f'loading calibration file {cal_file}')
+                cal_data = pickle.load(file)
+        except:
+            logger.warning(f'Failed to load calibration file {cal_file}')
+            cal_file = None
 
     # A list of bursts!
     for ind, burst in enumerate(B_data):
@@ -44,7 +54,47 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
         system_delay_samps_FD = 200;
         fs = 80000;
         # cm = plt.cm.jet
-        cm = parula();
+        cm = parula();  # This is a mockup of the current Matlab colormap (which is proprietary)
+
+        # Check if we have any status packets included -- we'll get
+        # the uBBR configuration from these.
+        if 'I' in burst:
+            logger.debug(f"Found {len(burst['I'])} status packets")
+                # Get uBBR config command:
+            ps = decode_status([burst['I'][0]])
+            bbr_config = decode_uBBR_command(ps[0]['prev_bbr_command'])
+            logger.debug(f'bbr config is: {bbr_config}')
+
+
+# ---------- Calibration coefficients ------
+        ADC_max_value = 32768. # 16 bits, twos comp
+        ADC_max_volts = 1.0    # ADC saturates at +- 1 volt
+
+        E_coef = ADC_max_volts/ADC_max_value  # [Volts at ADC / ADC bin]
+        B_coef = ADC_max_volts/ADC_max_value
+
+        if cal_file:
+            td_lims = [-1, 1]
+            E_cal_curve = cal_data[('E',bool(bbr_config['E_FILT']), bool(bbr_config['E_GAIN']))]
+            B_cal_curve = cal_data[('B',bool(bbr_config['B_FILT']), bool(bbr_config['B_GAIN']))]
+            E_coef *= 1000.0/max(E_cal_curve) # [(mV/m) / Vadc]
+            B_coef *= 1.0/max(B_cal_curve) # [(nT) / Vadc]
+            E_unit_string = 'mV/m @ Antenna'
+            B_unit_string = 'nT'
+
+            logger.debug(f'E calibration coefficient is {E_coef} V/m per bit')
+            logger.debug(f'B calibration coefficient is {B_coef} nT per bit')
+        else:
+            E_unit_string = 'V @ ADC'
+            B_unit_string = 'V @ ADC'
+
+        # Scale the spectrograms -- A perfect sine wave will have ~-3dB amplitude.
+        # Scaling covers 14 bits of dynamic range, with a maximum at each channel's theoretical peak
+        clims = np.array([-6*14, -3]) #[-96, -20]
+        e_clims = clims + 20*np.log10(E_coef*ADC_max_value/ADC_max_volts)
+        b_clims = clims + 20*np.log10(B_coef*ADC_max_value/ADC_max_volts)
+
+        # Generate time axis
 
 
         if cfg['TD_FD_SELECT'] == 1:
@@ -55,13 +105,9 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
             B_TD = fig.add_subplot(gs[1,0], sharex=E_TD)
             E_FD = fig.add_subplot(gs[0,1], sharex=E_TD)
             B_FD = fig.add_subplot(gs[1,1], sharex=E_FD)
-            cb1 = fig.add_subplot(gs[0,2])
-            cb2 = fig.add_subplot(gs[1,2])
+            cb1  = fig.add_subplot(gs[0,2])
+            cb2  = fig.add_subplot(gs[1,2])
 
-
-
-            td_lims = [-32768, 32768] #[-1,1]
-            # Generate time axis
 
 
             # Construct the appropriate time and frequency axes
@@ -92,11 +138,13 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
             sec_on  = cfg['SAMPLES_ON']/fs
             sec_off = cfg['SAMPLES_OFF']/fs
             
-            E_TD.plot(t_axis[0:len(burst['E'])], burst['E'])
-            B_TD.plot(t_axis[0:len(burst['B'])], burst['B'])
 
-            E_TD.set_ylim(td_lims)
-            B_TD.set_ylim(td_lims)
+            E_TD.plot(t_axis[0:len(burst['E'])], E_coef*burst['E'])
+            B_TD.plot(t_axis[0:len(burst['B'])], B_coef*burst['B'])
+
+
+            # E_TD.set_ylim(td_lims)
+            # B_TD.set_ylim(td_lims)
 
             nfft=1024;
             overlap = 0.5
@@ -104,17 +152,17 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
 
             
             if cfg['SAMPLES_OFF'] == 0:
-                E_td_spaced = burst['E']
-                B_td_spaced = burst['B']
+                E_td_spaced = E_coef*burst['E']
+                B_td_spaced = B_coef*burst['B']
             else:
                 # Insert nans into vector to account for "off" time sections
                 E_td_spaced = []
                 B_td_spaced = []
                 
                 for k in np.arange(cfg['burst_pulses']):
-                    E_td_spaced.append(burst['E'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
+                    E_td_spaced.append(E_coef*burst['E'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
                     E_td_spaced.append(np.ones(cfg['SAMPLES_OFF'])*np.nan)
-                    B_td_spaced.append(burst['B'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
+                    B_td_spaced.append(B_coef*burst['B'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
                     B_td_spaced.append(np.ones(cfg['SAMPLES_OFF'])*np.nan)
 
 
@@ -122,39 +170,37 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
                 B_td_spaced = np.concatenate(B_td_spaced).ravel()
 
 
-            clims = [-96, -20]
-
-            # E spectrogram
-            ff,tt, FE = scipy.signal.spectrogram(E_td_spaced/32768., fs=fs_equiv, window=window,
-                        nperseg=nfft, noverlap=nfft*overlap,mode='psd',scaling='density')
+            # E spectrogram -- "spectrum" scaling -> V^2; "density" scaling -> V^2/Hz
+            ff,tt, FE = scipy.signal.spectrogram(E_td_spaced, fs=fs_equiv, window=window,
+                        nperseg=nfft, noverlap=nfft*overlap,mode='psd',scaling='spectrum')
             E_S_mag = 20*np.log10(np.sqrt(FE))
             E_S_mag[np.isinf(E_S_mag)] = -100
             logger.debug(f'E data min/max: {np.min(E_S_mag)}, {np.max(E_S_mag)}')
-        #     pe = E_FD.pcolormesh(tt,ff,np.log10(E_S_mag), cmap = cm, shading='gouraud')
-            pe = E_FD.pcolorfast(tt,ff/1000,E_S_mag, cmap = cm,  vmin=clims[0], vmax=clims[1])
+            pe = E_FD.pcolorfast(tt,ff/1000,E_S_mag, cmap = cm,  vmin=e_clims[0], vmax=e_clims[1])
             ce = plt.colorbar(pe, cax=cb1)
 
             # B spectrogram
-            ff,tt, FB = scipy.signal.spectrogram(B_td_spaced/32768., fs=fs_equiv, window=window,
-                        nperseg=nfft, noverlap=nfft*overlap,mode='psd',scaling='density')
+            ff,tt, FB = scipy.signal.spectrogram(B_td_spaced, fs=fs_equiv, window=window,
+                        nperseg=nfft, noverlap=nfft*overlap,mode='psd',scaling='spectrum')
             B_S_mag = 20*np.log10(np.sqrt(FB))
             B_S_mag[np.isinf(B_S_mag)] = -100
             logger.debug(f'B data min/max: {np.min(B_S_mag)}, {np.max(B_S_mag)}')
-        #     pb = B_FD.pcolormesh(tt,ff, np.log10(B_S_mag), cmap = cm, shading='gouraud')
-            pb = B_FD.pcolorfast(tt,ff/1000, B_S_mag, cmap = cm,  vmin=clims[0], vmax=clims[1])
+            pb = B_FD.pcolorfast(tt,ff/1000, B_S_mag, cmap = cm, vmin=b_clims[0], vmax=b_clims[1])
             cb = plt.colorbar(pb, cax=cb2)
 
-            E_TD.set_ylabel('E\nAmplitude')
-            B_TD.set_ylabel('B\nAmplitude')
+            E_TD.set_ylabel(f'E Amplitude\n[{E_unit_string}]')
+            B_TD.set_ylabel(f'B Amplitude\n[{B_unit_string}]')
             E_FD.set_ylabel('Frequency [kHz]')
             B_FD.set_ylabel('Frequency [kHz]')
             B_TD.set_xlabel('Time [sec from start]')
             B_FD.set_xlabel('Time [sec from start]')
 
-            ce.set_label('dB(sqrt(psd))')
-            cb.set_label('dB(sqrt(psd))')
+            ce.set_label(f'dB[{E_unit_string}]')
+            cb.set_label(f'dB[{B_unit_string}]')
 
-            fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off'%(start_timestamp, cfg['burst_pulses'], sec_on, sec_off))
+
+            fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s, B gain = %s, B filter = %s'
+                %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT'], bbr_config['B_GAIN'], bbr_config['B_FILT']))
 
             if show_plots:
                 plt.show()
@@ -185,16 +231,20 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
             
             # E and B are flattened vectors; we need to reshape them into 2d arrays (spectrograms)
             max_E = len(burst['E']) - np.mod(len(burst['E']), len(f_axis))
-            E = burst['E'][0:max_E].reshape(int(max_E/len(f_axis)), len(f_axis))/32768.
+            E = burst['E'][0:max_E].reshape(int(max_E/len(f_axis)), len(f_axis))*E_coef
             E = E.T
             max_B = len(burst['B']) - np.mod(len(burst['B']), len(f_axis))
-            B = burst['B'][0:max_B].reshape(int(max_B/len(f_axis)), len(f_axis))/32768.
+            B = burst['B'][0:max_B].reshape(int(max_B/len(f_axis)), len(f_axis))*B_coef
             B = B.T
             
             logger.debug(f"E dims: {np.shape(E)}, B dims: {np.shape(B)}")
 
             # Generate time axis
             scale_factor = nfft/2./80000.
+
+            sec_on  = np.round(cfg['FFTS_ON']*scale_factor)
+            sec_off = np.round(cfg['FFTS_OFF']*scale_factor)
+
             if cfg['FFTS_OFF'] == 0:
                 # GPS packets are taken when stopping data capture -- e.g., at the end of the burst,
                 # or transitioning to a "samples off" section. If we're doing back-to-back bursts
@@ -221,7 +271,7 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
             Emag[np.isinf(Emag)] = -100
             Bmag = 20*np.log10(np.abs(B))
             Bmag[np.isinf(Bmag)] = -100
-
+            print(np.max(Emag), np.max(Bmag))
             # Spaced spectrogram -- insert nans (or -120 for a blue background) in the empty spaces
             E_spec_full = -120*np.ones([max_t_ind, 512])
             B_spec_full = -120*np.ones([max_t_ind, 512])
@@ -234,8 +284,8 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
             B_spec_full = B_spec_full.T          
             
             # Plots!
-            pe = E_FD.pcolormesh(t_axis_full_timestamps, f_axis_full/1000, E_spec_full, cmap = cm, vmin=clims[0], vmax=clims[1])
-            pb = B_FD.pcolormesh(t_axis_full_timestamps, f_axis_full/1000, B_spec_full, cmap = cm, vmin=clims[0], vmax=clims[1])
+            pe = E_FD.pcolormesh(t_axis_full_timestamps, f_axis_full/1000, E_spec_full, cmap = cm, vmin=e_clims[0], vmax=e_clims[1])
+            pb = B_FD.pcolormesh(t_axis_full_timestamps, f_axis_full/1000, B_spec_full, cmap = cm, vmin=b_clims[0], vmax=b_clims[1])
 
             # Axis labels and ticks. Label the burst start time, and the GPS timestamps.
             xtix = [t_axis_full_timestamps[0]]
@@ -250,10 +300,6 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
 
             fig.autofmt_xdate()
 
-            # Not spaced
-            # pe = E_FD.pcolormesh(Emag, cmap = cm, vmin=clims[0], vmax=clims[1])
-            # pb = B_FD.pcolormesh(Bmag, cmap = cm, vmin=clims[0], vmax=clims[1])
-
             ce = plt.colorbar(pe, cax=cb1)
             cb = plt.colorbar(pb, cax=cb2)
 
@@ -263,16 +309,20 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False):
             E_FD.set_ylabel('E\n Frequency [kHz]')
             B_FD.set_ylabel('B\n Frequency [kHz]')
 
-            ce.set_label('dBFS')
-            cb.set_label('dBFS')
+            # ce.set_label('dBFS')
+            # cb.set_label('dBFS')
+            ce.set_label(f'dB[{E_unit_string}]')
+            cb.set_label(f'dB[{B_unit_string}]')
 
             # B_FD.set_xlabel('Time [sec from start]')
             B_FD.set_xlabel("Time (H:M:S) on \n%s"%start_timestamp.strftime("%Y-%m-%d"))
 
-        fig.suptitle(f'Burst {ind}\n{start_timestamp}')    
+            # fig.suptitle(f'Burst {ind}\n{start_timestamp}')    
+            fig.suptitle('Frequency-Domain Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s, B gain = %s, B filter = %s'
+                %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT'], bbr_config['B_GAIN'], bbr_config['B_FILT']))
 
-        if show_plots:
-            plt.show()
+            if show_plots:
+                plt.show()
 
         # Save it!
         if ind == 0:
@@ -288,9 +338,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="VPM Ground Support Software\nBurst Plotter")
     
-    parser.add_argument("--inp","--in","-i",  required=False, type=str, default = "decoded_data.pkl", help="input file (pickle, xml, or netCDF)")
+    parser.add_argument("--inp","--input","-i",  required=False, type=str, default = "decoded_data.pkl", help="input file (pickle, xml, or netCDF)")
     parser.add_argument("--out","--output","-o",  required=False, type=str, default = "burst.png", help="output filename. Suffix defines the file type (png, jpg)")
     parser.add_argument("--logfile", required=False, type=str, default=None, help="log filename. If not provided, output is logged to console")
+    parser.add_argument("--calfile","--cal_file","--cal", required=False, type=str, default="calibration_data.pkl",
+                         help="Path to calibration data (a .pkl file). If no data provided, plots will reference volts at the ADCs")
 
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument("--interactive_plots", dest='int_plots', action='store_true', help ="Show plots interactively")
