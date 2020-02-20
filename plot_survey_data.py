@@ -9,7 +9,8 @@ from parula_colormap import parula
 import logging
 import argparse
 import os
-
+import math
+from file_handlers import read_survey_XML
 
 
 def plot_survey_data(S_data, filename="survey_data.pdf", show_plots=False):
@@ -44,6 +45,9 @@ def plot_survey_data(S_data, filename="survey_data.pdf", show_plots=False):
               'figure.figsize': fig_size}
     plt.rcParams.update(params)
     # --------------- Latex Plot Beautification --------------------------
+
+    # Start the logger
+    logger = logging.getLogger(__name__)
 
 
     # Assemble into grids:
@@ -83,20 +87,41 @@ def plot_survey_data(S_data, filename="survey_data.pdf", show_plots=False):
     ax2 = fig.add_subplot(gs[1,0])
     cbax = fig.add_subplot(gs[:,1])
 
-    # survey_fullscale = 10*np.log10(pow(2,32))
-
-    # # This is how we scaled the data in the Matlab code... I believe this maps the 
-    # # VPM values (8-bit log scaled ints) to a log scaled amplitude.
-    # E_data = 10*np.log10(pow(2,E_data/8)) - survey_fullscale
-    # B_data = 10*np.log10(pow(2,B_data/8)) - survey_fullscale
-    # 
-    # (This is where we might bring in a real-world calibration factor)
-    
 
 
+    # # Map the log-scaled survey outputs to physical units
+    # # This block accounts for the log-scaling and averaging modules,
+    # # and delivers dB-full-scale values at each frequency bin.
+    # # survey_fullscale = 20*np.log10(pow(2,32))   # 32 bits representing 0 - 1.
+    # SF = 256./32. # Equation 5.5 in Austin's thesis. 2^(bits out)/(bits in)
+
+    # # # (This is also where we might bring in a real-world calibration factor)
+    # # # E = 20*np.log10(pow(2,E/SF)) - survey_fullscale
+    # # # B = 20*np.log10(pow(2,B/SF)) - survey_fullscale
+
+    # # Normalize to full scale at output of averager; take the square root (e.g., divide by 2)
+    # # This should range from 0 to 16, with 16 representing a full-scale value - 65535.
+    # E = E/SF/2
+    # B = B/SF/2
+
+
+    # # # Linear scale -- square root of the (squared) average value
+    # E = pow(2,E)
+    # B = pow(2,B)
+    # # convert to base 10 dB:
+    # E = E/math.log(10,2)
+    # B = B/math.log(10,2)
+    # # Realistically, we're not going to have any zeroes in the survey data,
+    # # due to the noise floor of the uBBR. But let's mask off any infs anyway.
+    # E[np.isinf(E)] = -100
+    # B[np.isinf(B)] = -100
+
+    logger.info(f'emin: {np.min(E)}, emax: {np.max(E)}')
+    logger.info(f'bmin: {np.min(B)}, bmax: {np.max(B)}')
 
     clims = [0,255] #[-80,-40]
-    
+    # clims = [-40, 0]
+    # clims = [0, 16]
     t_edges = np.insert(T, 0, T[0] - 26)
     dates = [datetime.datetime.utcfromtimestamp(t) for t in t_edges]
     
@@ -139,13 +164,17 @@ def plot_survey_data(S_data, filename="survey_data.pdf", show_plots=False):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description="VPM Ground Support Software")
+    parser = argparse.ArgumentParser(description="VPM Ground Support Software -- Survey data plotter")
 
-    parser.add_argument("--in_dir",  required=True, type=str, default = 'input', help="path to directory of .tlm files")
-    parser.add_argument("--out_dir", required=False, type=str, default='output', help="path to output directory")
+    parser.add_argument("--input","--in",  required=True, type=str, default = 'input', help="path to an input XML file")
+    parser.add_argument("--output","--out", required=False, type=str, default='survey_data.png', help="output filename. Suffix defines file type (pdf, png)")
 
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument("--debug", dest='debug', action='store_true', help ="Debug mode (extra chatty)")
+    g.set_defaults(debug=False)
+
+    g = parser.add_mutually_exclusive_group(required=False)
+    g.add_argument("--interactive_plots", dest='show_plots', action='store_true', help ="Plot interactively")
     g.set_defaults(debug=False)
 
     args = parser.parse_args()
@@ -157,12 +186,14 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO,  format='[%(name)s]\t%(levelname)s\t%(message)s')
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
-    # print("plotting survey data...")
-    # # Load decoded data:
-    # with open("decoded_data.pkl","rb") as f:
-    #     d = pickle.load(f)
-    # print(d.keys())
+    
+    if os.path.exists(args.input):  
+        # Load it
+        dd = read_survey_XML(args.input)
 
-    # S_data = d['survey']
+        # Plot it
+        plot_survey_data(dd,args.output, args.show_plots)
+    else:
+        logging.warning(f'Cannot find file {args.input}')
 
-    # plot_survey_data(S_data, "survey_data.pdf")
+

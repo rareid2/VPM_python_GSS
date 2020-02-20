@@ -121,7 +121,7 @@ def decode_uBBR_command(cmd):
 
     out['TONESTEP'] = int(cmd_str[1:9],2)  # Pretty sure byte zero is unused...
     for parm, ind in zip(parms,inds):
-        out[parm] = cmd_str[ind]    
+        out[parm] = int(cmd_str[ind])    
     
     return out
 

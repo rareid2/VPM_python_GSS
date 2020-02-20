@@ -10,6 +10,8 @@ import itertools
 import os
 from plot_burst_data import plot_burst_data
 from packet_inspector import packet_inspector
+from decode_burst_command import decode_uBBR_command
+
 import logging
 
 def remove_trailing_nans(arr1d):
@@ -245,7 +247,9 @@ def decode_burst_data_between_status_packets(packets, debug_plots=False):
                 logger.info(burst_config)
 
                 processed = process_burst(packets_in_time_range, burst_config)
-                processed['I'] = [IA, IB]
+                # processed['I'] = [IA, IB]
+                processed['status'] = decode_status([IA, IB])
+                processed['bbr_config'] = decode_uBBR_command(processed['status'][0]['prev_bbr_command'])
                 processed['header_timestamp'] = ta
                 completed_bursts.append(processed)
 

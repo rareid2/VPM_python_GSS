@@ -5,8 +5,6 @@ from decode_burst_command import decode_burst_command, decode_uBBR_command
 import logging
 
 
-
-
 def decode_status(packets):
     '''
     Author:     Austin Sousa

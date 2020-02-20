@@ -47,6 +47,7 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False, cal_fil
     # for burst in [B_data[1]]:
         logger.debug(burst['config'])
         cfg = burst['config']
+
         logger.info(f'plotting burst {ind}')
         logger.info(f'burst configuration: {cfg}')
 
@@ -56,15 +57,23 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False, cal_fil
         # cm = plt.cm.jet
         cm = parula();  # This is a mockup of the current Matlab colormap (which is proprietary)
 
+
         # Check if we have any status packets included -- we'll get
         # the uBBR configuration from these.
-        if 'I' in burst:
+        if 'bbr_config' in burst:
+            bbr_config =burst['bbr_config']
+        elif 'I' in burst:
             logger.debug(f"Found {len(burst['I'])} status packets")
                 # Get uBBR config command:
-            ps = decode_status([burst['I'][0]])
-            bbr_config = decode_uBBR_command(ps[0]['prev_bbr_command'])
+            if 'prev_bbr_command' in burst['I'][0]:
+                bbr_config = decode_uBBR_command(burst['I'][0]['prev_bbr_command'])
+            else:
+                ps = decode_status([burst['I'][0]])
+                bbr_config = decode_uBBR_command(ps[0]['prev_bbr_command'])
             logger.debug(f'bbr config is: {bbr_config}')
-
+        else:
+            logger.warning(f'No bbr configuration found')
+            bbr_config = None
 
 # ---------- Calibration coefficients ------
         ADC_max_value = 32768. # 16 bits, twos comp
@@ -73,7 +82,7 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False, cal_fil
         E_coef = ADC_max_volts/ADC_max_value  # [Volts at ADC / ADC bin]
         B_coef = ADC_max_volts/ADC_max_value
 
-        if cal_file:
+        if cal_file and bbr_config:
             td_lims = [-1, 1]
             E_cal_curve = cal_data[('E',bool(bbr_config['E_FILT']), bool(bbr_config['E_GAIN']))]
             B_cal_curve = cal_data[('B',bool(bbr_config['B_FILT']), bool(bbr_config['B_GAIN']))]
@@ -82,7 +91,7 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False, cal_fil
             E_unit_string = 'mV/m @ Antenna'
             B_unit_string = 'nT'
 
-            logger.debug(f'E calibration coefficient is {E_coef} V/m per bit')
+            logger.debug(f'E calibration coefficient is {E_coef} mV/m per bit')
             logger.debug(f'B calibration coefficient is {B_coef} nT per bit')
         else:
             E_unit_string = 'V @ ADC'
@@ -198,10 +207,12 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False, cal_fil
             ce.set_label(f'dB[{E_unit_string}]')
             cb.set_label(f'dB[{B_unit_string}]')
 
-
-            fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s, B gain = %s, B filter = %s'
-                %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT'], bbr_config['B_GAIN'], bbr_config['B_FILT']))
-
+            if bbr_config:
+                fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s, B gain = %s, B filter = %s'
+                    %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT'], bbr_config['B_GAIN'], bbr_config['B_FILT']))
+            else:
+                fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off'
+                    %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off))
             if show_plots:
                 plt.show()
 
@@ -318,9 +329,12 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False, cal_fil
             B_FD.set_xlabel("Time (H:M:S) on \n%s"%start_timestamp.strftime("%Y-%m-%d"))
 
             # fig.suptitle(f'Burst {ind}\n{start_timestamp}')    
-            fig.suptitle('Frequency-Domain Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s, B gain = %s, B filter = %s'
-                %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT'], bbr_config['B_GAIN'], bbr_config['B_FILT']))
-
+            if bbr_config:
+                fig.suptitle('Frequency-Domain Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s, B gain = %s, B filter = %s'
+                    %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT'], bbr_config['B_GAIN'], bbr_config['B_FILT']))
+            else:
+                fig.suptitle('Frequency-Domain Burst\n%s - n = %d, %d on / %d off'
+                    %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off))
             if show_plots:
                 plt.show()
 

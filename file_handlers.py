@@ -300,30 +300,62 @@ def read_survey_XML(filename):
     # Return a list of dicts
     return outs
 
-
 def write_burst_XML(in_data, filename='burst_data.xml'):
     ''' write a list of burst elements to an xml file. '''
+
+    logger = logging.getLogger(__name__)
+    logger.info(f'writing data to {filename}')
     in_data = sorted(in_data, key=lambda k: k['header_timestamp'])
 
     d = ET.Element('burst_data')
     d.set('file_creation_date', datetime.datetime.now(datetime.timezone.utc).isoformat())
 
+    # Process each burst in the input list:
     for entry_data in in_data:
+        logger.debug(f'entry_data contains {entry_data.keys()}')
         entry = ET.SubElement(d, 'burst')
         entry.set('header_timestamp',datetime.datetime.utcfromtimestamp(entry_data['header_timestamp']).isoformat())
-        cfg = ET.SubElement(entry, 'burst_config')
-        gps = ET.SubElement(entry, 'GPS')
-        for k, v in entry_data['config'].items():
-            cur_item = ET.SubElement(cfg,k)
-            cur_item.text = str(v)
-
-        for g in entry_data['G']:
-            gps_el = ET.SubElement(gps,'gps_entry')
-            for k, v in g.items():
-                cur_item = ET.SubElement(gps_el,k)
+        
+        if 'config' in entry_data:
+            # Configuration entries
+            cfg = ET.SubElement(entry, 'burst_config')
+            for k, v in entry_data['config'].items():
+                cur_item = ET.SubElement(cfg,k)
                 cur_item.text = str(v)
 
+        if 'bbr_config' in entry_data:
+            # uBBR configuration entries
+            bbr = ET.SubElement(entry,'bbr_config')
+            for k, v in entry_data['bbr_config'].items():
+                cur_item = ET.SubElement(bbr,k)
+                cur_item.text = str(v)
+        
+        if 'G' in entry_data: 
+            # GPS entries
+            gps = ET.SubElement(entry, 'GPS')
+            for g in entry_data['G']:
+                gps_el = ET.SubElement(gps,'gps_entry')
+                for k, v in g.items():
+                    cur_item = ET.SubElement(gps_el,k)
+                    cur_item.text = str(v)
 
+
+        # # Status entries
+        # stat = ET.SubElement(entry,'status')
+        # for status in entry_data['I']:
+        #     stat_el = ET.SubElement(stat,'status_entry')
+        #     for k, v in status.items():
+        #         # (This is a prime place for some recursion, if you wanted to show off)
+        #         if isinstance(v,dict):
+        #             sub_entry = ET.SubElement(stat_el,k)
+        #             for kk, vv in v.items():
+        #                 cur_item = ET.SubElement(sub_entry,kk)
+        #                 cur_item.text = str(vv)
+        #         else:                
+        #             cur_item = ET.SubElement(stat_el,k)
+        #             cur_item.text = str(v)        
+
+        # E and B data fields        
         if entry_data['config']['TD_FD_SELECT']==1:
             # Time domain
             E_data_elem = ET.SubElement(entry,'E_data')
@@ -358,13 +390,12 @@ def write_burst_XML(in_data, filename='burst_data.xml'):
             B_imag.text = B_str
 
 
+
     rough_string = ET.tostring(d, 'utf-8')
     reparsed = MD.parseString(rough_string).toprettyxml(indent="\t")
 
     with open(filename, "w") as f:
         f.write(reparsed)
-
-
 
 def read_burst_XML(filename):   
     ''' Reads burst elements from an xml file. '''
@@ -374,15 +405,18 @@ def read_burst_XML(filename):
     # Open it
     with open(filename,'r') as f:
         tree = ET.parse(f)
-    
     outs = []
     
     # Process all "burst" elements
     for S in tree.findall('burst'):
         d = dict()
-        TD_FD_SELECT = S.find('config').find('TD_FD_SELECT').text
 
-        # Load configuration
+        # Load the iso-formatted UTC string, and cast it to a Unix timestamp
+        # (This is consistent with how we're storing times internally)
+        header_timestamp_isoformat = S.attrib['header_timestamp']
+        d['header_timestamp'] = datetime.datetime.fromisoformat(header_timestamp_isoformat).replace(tzinfo=datetime.timezone.utc).timestamp()
+        
+        # Load burst configuration
         d['config'] = dict()
         for el in S.find('burst_config'):
             # print(cfg)
@@ -393,18 +427,28 @@ def read_burst_XML(filename):
                 d['config'][el.tag] = el.text
             else:
                 d['config'][el.tag] = int(el.text)
-        print(d['config'].keys())
+
+        if S.find('bbr_config') is not None:
+            # Load bbr configuration
+            d['bbr_config'] = dict()
+            for el in S.find('bbr_config'):
+                d['bbr_config'][el.tag] = int(el.text)
+
+        TD_FD_SELECT = d['config']['TD_FD_SELECT']
 
         # Load data fields
-        if TD_FD_SELECT == '1':
+        if TD_FD_SELECT == 1:
             # Time domain
+            logger.debug('Selected time domain')
             d['E'] = np.fromstring(S.find('E_data').text, dtype='int16', sep=',')
             d['B'] = np.fromstring(S.find('B_data').text, dtype='int16', sep=',')
 
-        elif TD_FD_SELECT == '0':
+        elif TD_FD_SELECT == 0:
             # Frequency domain
+            logger.debug('Selected frequency domain')
             ER = np.fromstring(S.find('E_data').find('real').text, dtype='int16', sep=',')
             EI = np.fromstring(S.find('E_data').find('imag').text, dtype='int16', sep=',')
+            logger.debug(f'ER: {np.shape(ER)}, EI: {np.shape(EI)}')
             d['E'] = ER + 1j*EI
             
             BR = np.fromstring(S.find('B_data').find('real').text, dtype='int16', sep=',')
@@ -431,11 +475,61 @@ def read_burst_XML(filename):
     return outs
 
 
+def xml_read_kernel(el):
+    '''
+        A recursive kernel for reading XML elements
+        (don't call this directly)
+    '''
+    # Parse these fields as strings
+    str_fields = ['str','source','BINS']
+    
+    # Parse these fields as integer arrays
+    arr_uint8_fields = ['prev_bbr_command','prev_burst_command','prev_command']
+    
+    if len(list(el)) > 0:
+        d = dict()
+        for sub in el:
+            d[sub.tag] = xml_read_kernel(sub);
+        return d
+    else:
+        # base case!
+        if el.tag in str_fields:
+            return el.text
+        elif el.tag in arr_uint8_fields:
+            return np.fromstring(el.text[1:-1], dtype='uint8',sep=' ')
+        
+        else:
+            try:
+                return int(el.text)
+            except:
+                return float(el.text)
+            
+def read_XML(filename, field):   
+    ''' Reads status elements from an xml file. ''' 
+
+    # Open it
+    with open(filename,'r') as f:
+        tree = ET.parse(f)
+    outs = []
+    
+    # Process all elements
+    for S in tree.findall(field):
+        outs.append(xml_read_kernel(S));
+    return outs
+
+def read_status_XML(filename):
+    ''' A convenience wrapper '''
+    return read_XML(filename, 'status')
+    
 if __name__ == '__main__':
 
     import os
     import pickle
-    with open("decoded_data.pkl",'rb') as f:
+
+    logging.basicConfig(level=logging.DEBUG, format='[%(name)s]\t%(levelname)s\t%(message)s')
+
+
+    with open("output/decoded_data.pkl",'rb') as f:
         outs = pickle.load(f)
 
 
@@ -445,5 +539,11 @@ if __name__ == '__main__':
     # write_survey_XML(outs['survey'])
 
     print("writing burst data")
-    write_burst_XML(outs['burst'])
-    # write_burst_netCDF(outs['burst'][0])
+    write_burst_XML(outs['burst'],filename="burst_debug.xml")
+
+    xml_data = read_burst_XML("burst_debug.xml")
+    print("original data:")
+    print(outs['burst'][0].keys())
+    print("xml data:")
+    print(xml_data[0].keys())
+    
