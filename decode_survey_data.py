@@ -12,6 +12,11 @@ def decode_survey_data(packets):
     '''
     Author:     Austin Sousa
                 austin.sousa@colorado.edu
+    Version:    1.1
+        Date:   2.25.2020
+    Description:
+        - Modified sorting lines to use the 'header_timestamp' field rather
+          than computing it from header_epoch_sec and header_ns. 
     Version:    1.0
         Date:   10.14.2019
     Description:
@@ -36,7 +41,8 @@ def decode_survey_data(packets):
 
     S_packets = list(filter(lambda packet: packet['dtype'] == 'S', packets))
     # Sort by arrival time
-    S_packets = sorted(S_packets, key=lambda p: p['header_epoch_sec'] + p['header_ns']*1e-9)
+    # S_packets = sorted(S_packets, key=lambda p: p['header_epoch_sec'] + p['header_ns']*1e-9)
+    S_packets = sorted(S_packets, key=lambda p: p['header_timestamp'])
 
     if len(S_packets) == 0:
         logger.info("no survey data present!")
@@ -56,9 +62,7 @@ def decode_survey_data(packets):
 
     gps_length = 180
     survey_header = np.array([205, 171, 33, 67])
-    survey_footerooter = np.array([137, 103, 33, 67])
-
-    # survey_fullscale = 10*np.log10(pow(2,32))
+    # survey_footerooter = np.array([137, 103, 33, 67])
 
     # Index kernels
     gps_index = np.arange(len(survey_header),len(survey_header) + gps_length).astype('int')
@@ -77,7 +81,9 @@ def decode_survey_data(packets):
         cur_packets   = list(filter(lambda packet: packet['exp_num'] == e_num, S_packets))
 
         # Divide this list up into segments with nearby arrival times:
-        arrival_times = [p['header_epoch_sec'] + p['header_ns']*1e-9 for p in cur_packets]
+        # arrival_times = [p['header_epoch_sec'] + p['header_ns']*1e-9 for p in cur_packets]
+        arrival_times = [p['header_timestamp'] for p in cur_packets]
+
         # Find any significant time differences
         splits = np.where(np.diff(arrival_times) > separation_time)[0] + 1  
         # append the first and last indexes to the list, to give us pairs of indexes to slice around
@@ -107,14 +113,7 @@ def decode_survey_data(packets):
                 # d['header_epoch_sec'] = cur_packets[s1]['header_epoch_sec']
                 d['header_timestamp'] = cur_packets[s1]['header_timestamp']
                 d['exp_num'] = e_num
-                # d['header_timestamp'] = (reference_date + \
-                #     datetime.timedelta(seconds=cur_packets[s1]['header_epoch_sec'] + cur_packets[s1]['header_ns']*1e-9)).timestamp()
                 S_data.append(d)
-
-
-                # print("header: ",datetime.datetime.utcfromtimestamp(d['header_timestamp']))
-                # if G is not None:
-                #     print(datetime.datetime.utcfromtimestamp(G[0]['timestamp']))
 
             else:
                 # If not, put the unused packets aside, so we can possibly

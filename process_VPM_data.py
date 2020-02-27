@@ -1,4 +1,4 @@
-from decode_packets import decode_packets
+from decode_packets import decode_packets_TLM, decode_packets_CSV
 from decode_survey_data import decode_survey_data
 from decode_burst_data import decode_burst_data_by_experiment_number, decode_burst_data_in_range, decode_burst_data_between_status_packets
 from decode_status import decode_status
@@ -142,46 +142,49 @@ else:
     d = os.listdir(data_root)
 
     tlm_files = [x for x in d if x.endswith('.tlm')]
+    csv_files = [x for x in d if x.endswith('.csv')]
+
 
     logging.info(f"found {len(tlm_files)} .tlm files")
+    logging.info(f"found {len(csv_files)} .csv files")
 
     if len(tlm_files) > 0:        
-        # Load packets from each TLM file, tag each with the 
-        # source filename, and decode
-
+        # Load packets from each TLM file, tag with the source filename, and decode
         for fname in tlm_files:
-            logging.info(f'Loading file {fname}')
-            fpath = os.path.join(data_root, fname)
-            with open(fpath,'rb') as f:
-                cur_data = np.fromfile(f,dtype='uint8')
-                packets.extend(decode_packets(cur_data, fname=fname))
-                
-                # Move the original file to the "processed" directory
-                if args.move_completed:
-                    shutil.move(fpath, os.path.join(processed_dir,fname))
+            packets.extend(decode_packets_TLM(data_root, fname))
 
-        
-        # Load any previously-unused packets, and add them to the list
-        if args.do_previous:
-            if os.path.exists(in_progress_file):
-                logging.info("loading previous unused data")
-                with open(in_progress_file,'rb') as f:
-                    packets_in_progress = pickle.load(f) 
-                    logging.info(f'loaded {len(packets_in_progress)} in-progress packets')
-                    packets.extend(packets_in_progress)
+            # Move the original file to the "processed" directory
+            if args.move_completed:
+                shutil.move(fpath, os.path.join(processed_dir,fname))
 
-        
+    if len(csv_files) > 0:
+        # Load packets from each CSV file, tag with the source filename, and decode
+        for fname in csv_files:
+            packets.extend(decode_packets_CSV(data_root, fname))
 
-        # Save the decoded packets as an interstitial step 
-        # (This isn't used anywhere, aside from module tests)
-        with open(os.path.join(out_root,'packets.pkl'),'wb') as f:
-            pickle.dump(packets, f)
+            # Move the original file to the "processed" directory
+            if args.move_completed:
+                shutil.move(fpath, os.path.join(processed_dir,fname))
+
+    # Load any previously-unused packets, and add them to the list
+    if args.do_previous:
+        if os.path.exists(in_progress_file):
+            logging.info("loading previous unused data")
+            with open(in_progress_file,'rb') as f:
+                packets_in_progress = pickle.load(f) 
+                logging.info(f'loaded {len(packets_in_progress)} in-progress packets')
+                packets.extend(packets_in_progress)
+
+    # Save the decoded packets as an interstitial step 
+    # (This isn't used anywhere, aside from module tests)
+    with open(os.path.join(out_root,'packets.pkl'),'wb') as f:
+        pickle.dump(packets, f)
 
 
 
 # ----------------- Process any packets we have -------------
 if packets:
-
+    # Sort by header timestamp
     packets = sorted(packets, key = lambda p: p['header_timestamp'])
 
     # Run the packet inspector tool, if requested
@@ -191,10 +194,12 @@ if packets:
 
     outs = dict()
 
+    # Process status messages
     logging.info("Decoding status messages")
     stats = decode_status(packets)
     outs['status'] = stats
 
+    # Process any bursts
     if args.do_burst:
         # Three different burst decoding methods to choose from:
         logging.info("Decoding burst data")
@@ -222,6 +227,7 @@ if packets:
                                    debug_plots=args.packet_inspector)
         outs['burst'] = B_data
 
+    # Process any survey data
     if args.do_survey:
         logging.info("Decoding survey data")
         S_data, unused_survey = decode_survey_data(packets)
@@ -275,9 +281,6 @@ if packets:
     if stats:
         logging.info("writing status messages")
         write_status_XML(stats,os.path.join(out_root,"status_messages.xml"))
-        # with open(os.path.join(out_root,'status_messages.txt'),'w') as f:
-        #     for st in stats:
-        #         f.write(st)
 
     # Plot the results!
     if args.do_burst and B_data:
