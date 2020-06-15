@@ -232,11 +232,11 @@ def main():
 
     last_timestamp = get_last_access_time(access_log,'process_burst_data')
     last_time = datetime.datetime.utcfromtimestamp(last_timestamp)
-    t1 = datetime.datetime(2020,5,1,0,0,0)
-    t2 = datetime.datetime(2020,5,4,0,0,0)
+    # t1 = datetime.datetime(2020,5,1,0,0,0)
+    # t2 = datetime.datetime(2020,5,4,0,0,0)
     logging.info(f'Last run time: {last_time} UTC')
 
-    bursts = process_bursts_from_database(packet_db, t1 = t1, t2=t2, date_added=last_time)
+    bursts = process_bursts_from_database(packet_db, date_added=last_time) # t1=t1, t2=t2)
 
     if do_plots or do_maps:
         gen_burst_plots(bursts, out_root, do_plots=do_plots,
@@ -247,6 +247,7 @@ def main():
     save_burst_to_file_tree(bursts, out_root, file_types)
 
     # Success!
+    logging.info(f'saving access time')
     log_access_time(access_log,'process_burst_data')
 
 if __name__ == "__main__":

@@ -8,7 +8,21 @@ from plots.parula_colormap import parula
 import logging
 import os
 import pickle
-from mpl_toolkits.basemap import Basemap
+
+try:
+    from mpl_toolkits.basemap import Basemap
+except:
+    # Basemap has trouble finding proj_lib correctly - here's an automated fix
+    import os
+    import conda
+
+    conda_file_dir = conda.__file__
+    conda_dir = conda_file_dir.split('lib')[0]
+    proj_lib = os.path.join(os.path.join(conda_dir, 'share'), 'proj')
+    os.environ["PROJ_LIB"] = proj_lib
+    from mpl_toolkits.basemap import Basemap
+
+
 from scipy.interpolate import interp1d, interp2d
 from matplotlib.cm import get_cmap
 from mpl_toolkits.basemap.solar import daynight_terminator
