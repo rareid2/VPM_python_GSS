@@ -47,7 +47,7 @@ def valid_GPS_mask(s):
     
     return temp
 
-def save_survey_to_file_tree(S_data, out_root, save_MAT=True):
+def save_survey_to_file_tree(S_data, out_root, file_types=['xml']):
     logger = logging.getLogger('save_survey_to_file_tree')
 
 
@@ -81,6 +81,9 @@ def save_survey_to_file_tree(S_data, out_root, save_MAT=True):
             fname = f"VPM_survey_data_{d.strftime('%Y-%m-%d')}.xml"
             # Check for previous file
             outfile = os.path.join(outpath, fname)
+
+            # Here we're using the XML files as the master record. Load previous
+            # entries and merge with the new ones; remove duplicates.
             if not os.path.exists(outpath):
                 os.makedirs(outpath)
             if os.path.exists(outfile):
@@ -97,18 +100,26 @@ def save_survey_to_file_tree(S_data, out_root, save_MAT=True):
             logger.info(f'saving {len(S_filt)} survey entries')
             S_filt = sorted(S_filt, key=lambda x: get_timestamp(x))
 
-            # Write XML file
-            write_survey_XML(S_filt, outfile)
+            # Can save xml, matlab, or pickle file types:
+            for ftype in file_types:
+                    outpath = os.path.join(out_root,ftype,f'{d.year}', '{:02d}'.format(d.month))
+                    fname = f"VPM_survey_data_{d.strftime('%Y-%m-%d')}.{ftype}"
+                    outfile = os.path.join(outpath, fname)
+                    if not os.path.exists(outpath):
+                        os.makedirs(outpath)
 
-            if save_MAT:
-                # Write MAT file
-                outpath = os.path.join(out_root,'mat',f'{d.year}', '{:02d}'.format(d.month))
-                fname = f"VPM_survey_data_{d.strftime('%Y-%m-%d')}.mat"
-                outfile = os.path.join(outpath, fname)
-                if not os.path.exists(outpath):
-                    os.makedirs(outpath)
-                savemat(outfile, {'survey_data' : S_filt})
+                if ftype =='xml':
+                    # Write XML file
+                    write_survey_XML(S_filt, outfile)
 
+                if ftype='mat':
+                    # Write MAT file
+                    savemat(outfile, {'survey_data' : S_filt})
+
+                if ftype='pkl':
+                    # Write pickle file
+                    with open(outfile,'wb') as file:
+                        pickle.dump(S_filt, file)                    
 
     # ---------------- Cache invalid packets -----------------------------
 
@@ -127,11 +138,19 @@ def save_survey_to_file_tree(S_data, out_root, save_MAT=True):
 
         logger.info(f'saving {len(S_invalid)} rejected survey entries')
         S_invalid = sorted(S_invalid, key=lambda x: get_timestamp(x))
-        write_survey_XML(S_invalid)
 
-        if save_MAT:
-            invalid_mat_file = os.path.join(out_root,'mat','invalid_entries.mat')
-            savemat(invalid_mat_file, {'survey_data': S_invalid})
+        for ftype in file_types:
+            invalid_file = os.path.join(out_root,ftpye,f'invalid_entries.{ftype}')
+
+            if ftype=='xml':
+                write_survey_XML(S_invalid, invalid_file)
+
+            if ftype=='mat':
+                savemat(invalid_file, {'survey_data': S_invalid})
+
+            if ftype=='pkl':
+                with open(outfile,'wb') as file:
+                    pickle.dump(S_invalid, file)
 
 
 def main():
