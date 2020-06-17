@@ -137,13 +137,6 @@ def get_packets_within_range(database, dtype=None, date_added=None, t1=None, t2=
     '''
     logger = logging.getLogger('get_packets_within_range')
 
-    sql = '''SELECT DISTINCT * FROM packets 
-                WHERE header_timestamp > ? 
-                AND header_timestamp < ? 
-                AND dtype=?
-                AND added > ?
-                ORDER BY header_timestamp'''
-
     if date_added is None:
         date_added = datetime.datetime.utcfromtimestamp(0)
     if t1 is None:
@@ -154,7 +147,25 @@ def get_packets_within_range(database, dtype=None, date_added=None, t1=None, t2=
     conn = create_connection(database)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute(sql, (t1.timestamp(), t2.timestamp(), dtype, date_added.timestamp()))
+
+    if dtype:
+        sql = '''SELECT DISTINCT * FROM packets 
+                WHERE header_timestamp > ? 
+                AND header_timestamp < ? 
+                AND dtype=?
+                AND added > ?
+                ORDER BY header_timestamp'''
+
+        cur.execute(sql, (t1.timestamp(), t2.timestamp(), dtype, date_added.timestamp()))
+    else:
+        sql = '''SELECT DISTINCT * FROM packets 
+                WHERE header_timestamp > ? 
+                AND header_timestamp < ? 
+                AND added > ?
+                ORDER BY header_timestamp'''
+
+        cur.execute(sql, (t1.timestamp(), t2.timestamp(), date_added.timestamp()))
+
     rows = cur.fetchall()
 
     logger.debug(f'Retrieved {np.shape(rows)[0]} packets from db')

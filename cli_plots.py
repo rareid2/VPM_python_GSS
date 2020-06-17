@@ -69,7 +69,7 @@ def plot_burst_data(B_data, filename="burst_data.png", show_plots=False,
         
 
     for ind, burst in enumerate(B_data):
-        logger.info('plotting burst {ind}')
+        logger.info(f'plotting burst {ind}')
         cfg = burst['config']
         fig = plt.figure()
 

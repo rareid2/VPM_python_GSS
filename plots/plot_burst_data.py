@@ -348,7 +348,7 @@ def plot_burst_FD(fig, burst, cal_data = None):
         Emag[np.isinf(Emag)] = -100
         Bmag = 20*np.log10(np.abs(B))
         Bmag[np.isinf(Bmag)] = -100
-        print(np.max(Emag), np.max(Bmag))
+        # print(np.max(Emag), np.max(Bmag))
         # Spaced spectrogram -- insert nans (or -120 for a blue background) in the empty spaces
         E_spec_full = -120*np.ones([max_t_ind, 512])
         B_spec_full = -120*np.ones([max_t_ind, 512])
