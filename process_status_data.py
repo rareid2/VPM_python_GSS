@@ -104,7 +104,8 @@ def main():
 
         if stats:
             save_status_to_file_tree(stats, out_root)
-            log_access_time(access_log,'process_status_data')
+  
+    log_access_time(access_log,'process_status_data')
             
 if __name__=="__main__":
     main()

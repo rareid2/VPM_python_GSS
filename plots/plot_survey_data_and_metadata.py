@@ -45,10 +45,10 @@ def is_day(t, lats, lons):
         
     return dayvec
 
-def plot_survey_data_and_metadata_core(fig, S_data, filename='survey_data_with_metadata.pdf',
+def plot_survey_data_and_metadata(fig, S_data,
                 plot_map=True, bus_timestamps=False, t1=None, t2=None,
                 line_plots = ['Lshell','altitude','velocity','lat','lon','used_sats','solution_status','solution_type'],
-                show_plots=False, lshell_file = 'resources/Lshell_dict.pkl'):
+                show_plots=False, lshell_file = 'resources/Lshell_dict.pkl', cal_file = None, E_gain=False, B_gain=False):
 
     logger = logging.getLogger()
 
@@ -104,7 +104,7 @@ def plot_survey_data_and_metadata_core(fig, S_data, filename='survey_data_with_m
         # Sort using payload GPS timestamp (rounded to nearest second.
         # Ugh, why didn't we just save a local microsecond counter... do that on CANVAS please)
         for S in S_with_GPS:
-            T.append(S['header_timestamp'])
+            T.append(S['GPS'][0]['timestamp'])
             E.append(S['E_data'])
             B.append(S['B_data'])
     T = np.array(T)

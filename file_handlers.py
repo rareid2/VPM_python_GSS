@@ -7,209 +7,7 @@ import os
 import logging
 import gzip
 import pickle
-
-# def write_survey_netCDF(data, filename='survey_data.nc'):
-#     '''
-#     Author:     Austin Sousa
-#                 austin.sousa@colorado.edu
-#     Version:    1.0
-#         Date:   10.19.2019
-#     Description:
-#         Writes decoded survey data to a netCDF file
-
-#     inputs: 
-#         data: A list of dictionaries, as generated from decode_survey_data.py
-#         filename: The output file; please use a ".nc" suffix
-#     outputs:
-#         A saved file at <filename>
-#     '''
-
-
-#     f = netCDF4.Dataset(filename,"w")
-#     time = f.createDimension("time",None)
-#     freq = f.createDimension("frequency",512)
-
-#     E = f.createVariable('data/E','uint8',('time','frequency'))
-#     E.description = "Electric field survey data"
-
-#     B = f.createVariable('data/B','uint8',('time','frequency'))
-#     B.description = "Magnetic field survey data"
-
-#     T = f.createVariable('data/T','i4',('time'))
-#     T.description = "time (UNIX timestamp, UTC)"
-
-#     lat = f.createVariable('GPS/lat','d',('time'))
-#     lat.description = "geo latitude"
-#     lat.units = 'deg'
-#     lon = f.createVariable('GPS/lon','d',('time'))
-#     lon.description = "geo longitude"
-#     lon.units = 'deg'
-#     alt = f.createVariable('GPS/alt','d',('time'))
-#     alt.description = 'height above sea level'
-#     alt.units = 'm'
-#     v_horiz = f.createVariable('GPS/vel_horiz','d',('time'))
-#     v_horiz.description="Horizontal velocity"
-#     v_horiz.units="m/s"
-#     v_vert = f.createVariable('GPS/vel_vert','d',('time'))
-#     v_vert.description="Vertical velocity"
-#     v_vert.units='m/s'
-#     v_gt = f.createVariable('GPS/ground_track','d',('time'))
-#     v_gt.description="Ground track direction"
-#     v_gt.units='deg'
-
-#     # GPS metadata:
-#     tracked_sats = f.createVariable('GPS/metadata/tracked_sats','I',('time'))
-#     used_sats    = f.createVariable('GPS/metadata/used_sats','I',('time'))
-#     soln_status  = f.createVariable('GPS/metadata/solution_status','I',('time'))
-#     soln_type    = f.createVariable('GPS/metadata/solution_type','I',('time'))
-#     latency      = f.createVariable('GPS/metadata/latency','f4',('time'))
-
-#     # Flip through the list, sorted by timestamp
-#     for i, d in enumerate(sorted(data, key = lambda i: i['GPS'][0]['timestamp'])):
-#         E[i,:] = d['E_data']
-#         B[i,:] = d['B_data']
-
-#         T[i] = d['GPS'][0]['timestamp']
-
-#         lat[i] = d['GPS'][0]['lat']
-#         lon[i] = d['GPS'][0]['lon']
-#         alt[i] = d['GPS'][0]['alt']
-        
-#         v_horiz[i] = d['GPS'][0]['horiz_speed']
-#         v_vert[i]  = d['GPS'][0]['vert_speed']
-#         v_gt[i]    = d['GPS'][0]['ground_track']
-
-#         # GPS metadata
-#         tracked_sats[i] = d['GPS'][0]['tracked_sats']
-#         used_sats[i]    = d['GPS'][0]['used_sats']
-#         soln_status[i]  = d['GPS'][0]['solution_status']
-#         soln_type[i]    = d['GPS'][0]['solution_type']
-#         latency[i]      = d['GPS'][0]['latency']
-
-#     f.close()
-
-
-# def write_burst_netCDF(data_in, filename='burst_data.nc'):
-
-
-#     datatype = 'int16' # single, double? int? The original data is 16 bit
-
-#     for ind, data in enumerate(data_in): 
-#     # Write a separate file for each burst
-
-#         # Filename
-#         if ind == 0:
-#             fname = filename
-#         else:
-#             components = os.path.splitext(filename)
-#             fname = components[0] + f"_{ind}" + components[1]
-
-#         f = netCDF4.Dataset(fname,"w")
-#         # Burst configuration parameters:
-#         cfg = f.createGroup('config')
-#         for k,v in data['config'].items():
-#             setattr(cfg, k, v)
-
-#         time = f.createDimension("time",None)
-
-#         # There's a timestamp corresponding to each nPulses; each timestamp object is a position and velocity message.
-#         # TODO: have decode_GPS return a list of timestamps
-#         ts = f.createDimension("timestamps",None) 
-#         f_gps = f.createGroup('GPS')
-
-#         if data['config']['TD_FD_SELECT'] ==1:
-#             # Time-domain mode:
-
-
-#             E = f.createVariable('data/E','i2',('time'))
-#             E.description = "Electric field burst data"
-#             E.units = "eng. units"
-#             E[:] = data['E']
-
-#             B = f.createVariable('data/B','i2',('time'))
-#             B.description = "Magnetic field burst data"
-#             B.units = "eng. units"
-#             B[:] = data['B']
-            
-#             # T = f.createVariable('data/t_axis','f4',('time'))
-#             # T.description = "time axis (seconds elapsed from beginning of burst)"
-#             # T[:] = data['t_axis']
-
-#         else:
-#             # Frequency-domain mode:
-
-#             # Get frequency axis size:
-#             f_length = int(data['config']['BINS'].count('1')*(1024/2/16))
-        
-#             freq = f.createDimension("frequency",f_length)
-            
-#             max_E = len(data['E']) - np.mod(len(data['E']), f_length)
-#             E_2D = data['E'][0:max_E].reshape(int(max_E/f_length), f_length)
-#             max_B = len(data['B']) - np.mod(len(data['B']), f_length)
-#             B_2D = data['B'][0:max_B].reshape(int(max_B/f_length), f_length)
-
-#             E_real = f.createVariable('data/E/real','i2',('time','frequency'))
-#             E_real.description = "Electric field burst data -- real component"
-#             E_imag = f.createVariable('data/E/imag','i2',('time','frequency'))
-#             E_imag.description = "Electric field burst data -- imaginary component"
-            
-#             E_real[:,:] = np.real(E_2D).astype('int16')
-#             E_imag[:,:] = np.imag(E_2D).astype('int16')
-            
-#             B_real = f.createVariable('data/B/real','i2',('time','frequency'))
-#             B_real.description = "Magnetic field burst data -- real component"
-#             B_imag = f.createVariable('data/B/imag','i2',('time','frequency'))
-#             B_imag.description = "Magnetic field burst data -- imaginary component"
-
-#             B_real[:,:] = np.real(B_2D).astype('int16')
-#             B_imag[:,:] = np.imag(B_2D).astype('int16')
-
-#         # GPS data:
-#         lat = f.createVariable('GPS/lat','d',('timestamps'))
-#         lat.description = "geo latitude"
-#         lat.units = 'deg'
-#         lon = f.createVariable('GPS/lon','d',('timestamps'))
-#         lon.description = "geo longitude"
-#         lon.units = 'deg'
-#         alt = f.createVariable('GPS/alt','d',('timestamps'))
-#         alt.description = 'height above sea level'
-#         alt.units = 'm'
-#         v_horiz = f.createVariable('GPS/vel_horiz','d',('timestamps'))
-#         v_horiz.description="Horizontal velocity"
-#         v_horiz.units="m/s"
-#         v_vert = f.createVariable('GPS/vel_vert','d',('timestamps'))
-#         v_vert.description="Vertical velocity"
-#         v_vert.units='m/s'
-#         v_gt = f.createVariable('GPS/ground_track','d',('timestamps'))
-#         v_gt.description="Ground track direction"
-#         v_gt.units='deg'
-
-#         # GPS metadata:
-#         tracked_sats = f.createVariable('GPS/metadata/tracked_sats','I',('timestamps'))
-#         used_sats    = f.createVariable('GPS/metadata/used_sats','I',('timestamps'))
-#         soln_status  = f.createVariable('GPS/metadata/solution_status','I',('timestamps'))
-#         soln_type    = f.createVariable('GPS/metadata/solution_type','I',('timestamps'))
-#         latency      = f.createVariable('GPS/metadata/latency','f4',('timestamps'))
-
-
-#         # here's where you should loop over multiple GPS timestamp messages:
-#         for i, G in enumerate(data['G']):
-        
-#             lat[i] = G['lat']
-#             lon[i] = G['lon']
-#             alt[i] = G['alt']
-
-#             v_horiz[i] = G['horiz_speed']
-#             v_vert[i] = G['vert_speed']
-#             v_gt[i] = G['ground_track']
-
-#             # GPS metadata
-#             tracked_sats[i] = G['tracked_sats']
-#             used_sats[i] = G['used_sats']
-#             soln_status[i] = G['solution_status']
-#             soln_type[i] = G['solution_type']
-#             latency[i] = G['latency']
-#         f.close()
+import scipy.io as spio
 
 def write_status_XML(in_data, filename="status_messages.xml"):
     '''write status messages to an xml file'''
@@ -325,6 +123,9 @@ def write_burst_XML(in_data, filename='burst_data.xml'):
         entry = ET.SubElement(d, 'burst')
         entry.set('header_timestamp',datetime.datetime.utcfromtimestamp(entry_data['header_timestamp']).isoformat())
         
+        if 'footer_timestamp' in entry_data:
+            entry.set('footer_timestamp', datetime.datetime.utcfromtimestamp(entry_data['footer_timestamp']).isoformat())
+
         if 'experiment_number' in entry_data:
             entry.set('experiment_number', f"{entry_data['experiment_number']}")
             
@@ -365,7 +166,9 @@ def write_burst_XML(in_data, filename='burst_data.xml'):
         #                 cur_item.text = str(vv)
         #         else:                
         #             cur_item = ET.SubElement(stat_el,k)
-        #             cur_item.text = str(v)        
+        #             cur_item.text = str(v)
+
+
 
         # E and B data fields        
         if entry_data['config']['TD_FD_SELECT']==1:
@@ -428,13 +231,20 @@ def read_burst_XML(filename):
         header_timestamp_isoformat = S.attrib['header_timestamp']
         d['header_timestamp'] = datetime.datetime.fromisoformat(header_timestamp_isoformat).replace(tzinfo=datetime.timezone.utc).timestamp()
         
+        if 'footer_timestamp' in S.attrib:
+            footer_timestamp_isoformat = S.attrib['footer_timestamp']
+            d['footer_timestamp'] = datetime.datetime.fromisoformat(footer_timestamp_isoformat).replace(tzinfo=datetime.timezone.utc).timestamp()    
+
+        if 'experiment_number' in S.attrib:
+            d['experiment_number'] = int(S.attrib['experiment_number'])     
+
         # Load burst configuration
         d['config'] = dict()
         for el in S.find('burst_config'):
             # print(cfg)
             # print(el.tag, el.text)
             # # for el in cfg:
-                # print(el.name, el.text)
+                # print(el.name, el.text)   
             if el.tag in ['str', 'BINS']:
                 d['config'][el.tag] = el.text
             else:
@@ -448,23 +258,23 @@ def read_burst_XML(filename):
 
         TD_FD_SELECT = d['config']['TD_FD_SELECT']
 
-        # Load data fields
+        # Load data fields -- as dtype "float" to preserve NaNs
         if TD_FD_SELECT == 1:
             # Time domain
             logger.debug('Selected time domain')
-            d['E'] = np.fromstring(S.find('E_data').text, dtype='int16', sep=',')
-            d['B'] = np.fromstring(S.find('B_data').text, dtype='int16', sep=',')
+            d['E'] = np.fromstring(S.find('E_data').text, dtype='float', sep=',')
+            d['B'] = np.fromstring(S.find('B_data').text, dtype='float', sep=',')
 
         elif TD_FD_SELECT == 0:
             # Frequency domain
             logger.debug('Selected frequency domain')
-            ER = np.fromstring(S.find('E_data').find('real').text, dtype='int16', sep=',')
-            EI = np.fromstring(S.find('E_data').find('imag').text, dtype='int16', sep=',')
+            ER = np.fromstring(S.find('E_data').find('real').text, dtype='float', sep=',')
+            EI = np.fromstring(S.find('E_data').find('imag').text, dtype='float', sep=',')
             logger.debug(f'ER: {np.shape(ER)}, EI: {np.shape(EI)}')
             d['E'] = ER + 1j*EI
             
-            BR = np.fromstring(S.find('B_data').find('real').text, dtype='int16', sep=',')
-            BI = np.fromstring(S.find('B_data').find('imag').text, dtype='int16', sep=',')
+            BR = np.fromstring(S.find('B_data').find('real').text, dtype='float', sep=',')
+            BI = np.fromstring(S.find('B_data').find('imag').text, dtype='float', sep=',')
             d['B'] = BR + 1j*BI
 
         logger.info(f"loaded E data of size {len(d['E'])}")
@@ -508,7 +318,7 @@ def xml_read_kernel(el):
         if el.tag in str_fields:
             return el.text
         elif el.tag in arr_uint8_fields:
-            return np.fromstring(el.text[1:-1], dtype=np.uint8,sep=' ')
+            return np.fromstring(el.text[1:-1], dtype='uint8',sep=' ')
         
         else:
             try:
@@ -561,6 +371,84 @@ def load_packets_from_tree(raw_root):
                 print(f'Problem with {fname}')
 
     return packets
+
+
+def loadmat(filename, var_names = None):
+    '''
+    this function should be called instead of direct spio.loadmat
+    as it cures the problem of not properly recovering python dictionaries
+    from mat files. It calls the function check keys to cure all entries
+    which are still mat-objects
+    '''
+    def _check_keys(d):
+        '''
+        checks if entries in dictionary are mat-objects. If yes
+        todict is called to change them to nested dictionaries
+        '''
+        for key in d:
+            if isinstance(d[key], spio.matlab.mio5_params.mat_struct):
+                d[key] = _todict(d[key])
+            if isinstance(d[key], np.ndarray):
+                d[key] = _tolist(d[key])
+        return d
+
+    def _todict(matobj):
+        '''
+        A recursive function which constructs from matobjects nested dictionaries
+        '''
+        d = {}
+        for strg in matobj._fieldnames:
+            elem = matobj.__dict__[strg]
+            if isinstance(elem, spio.matlab.mio5_params.mat_struct):
+                d[strg] = _todict(elem)
+            elif isinstance(elem, np.ndarray):
+                d[strg] = _tolist(elem)
+            else:
+                d[strg] = elem
+        return d
+
+    def _tolist(ndarray):
+        '''
+        A recursive function which constructs lists from cellarrays
+        (which are loaded as numpy ndarrays), recursing into the elements
+        if they contain matobjects.
+        '''
+        elem_list = []
+        for sub_elem in ndarray:
+            if isinstance(sub_elem, spio.matlab.mio5_params.mat_struct):
+                elem_list.append(_todict(sub_elem))
+            elif isinstance(sub_elem, np.ndarray):
+                elem_list.append(_tolist(sub_elem))
+            else:
+                elem_list.append(sub_elem)
+        return elem_list
+    
+    data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
+    return _check_keys(data)
+
+def read_survey_matlab(filename):
+    sd = loadmat(filename)
+    if 'survey_data' in sd:
+        sd = sd['survey_data']
+        for x in sd:
+            if 'GPS' in x:
+                x['GPS'] = [x['GPS']]
+            x['E_data'] = np.array(x['E_data'], dtype='uint8')
+            x['B_data'] = np.array(x['B_data'], dtype='uint8')
+        return sd
+    else:
+        return []
+
+def read_burst_matlab(filename):
+    bd = loadmat(filename)
+    
+    if 'burst_data' in bd:
+        bd = bd['burst_data']
+        bd['E'] = np.array(bd['E'])
+        bd['B'] = np.array(bd['B'])
+        return [bd]
+    else:
+        return []
     
 if __name__ == '__main__':
 

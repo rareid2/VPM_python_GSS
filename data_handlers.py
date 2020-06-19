@@ -1025,8 +1025,8 @@ def decode_GPS_data(data):
     if len(pos_inds)==0 and len(vel_inds)==0:
         logger.debug("No GPS logs found")
         return []
-    else:
-        logger.debug(f'found {len(pos_inds)} position logs and {len(vel_inds)} velocity logs')
+    # else:
+        # logger.debug(f'found {len(pos_inds)} position logs and {len(vel_inds)} velocity logs')
         # In survey mode, there should never be more than 1 position and 1 velocity entry
         
     # See page 47 of the OEM7 Firmware Reference Manual for the header reference indices,
@@ -1287,3 +1287,48 @@ def unique_entries(in_list):
         el.pop('id')
     
     return temp
+
+
+def deep_compare(d1, d2):
+    ''' Implements a recursive deep compare of two objects
+        (lists, dictionaries, arrays, or otherwise comparable)
+        and any structure comprised of these types. '''
+    
+    # Check types
+    if not isinstance(d1, type(d2)):
+        print(f'Type mismatch: {type(d1)}, {type(d2)}')
+        return False
+    
+    # Root nodes are dictionaries -- process each element
+    if isinstance(d1, dict):
+        k1 = sorted(d1.keys())
+        k2 = sorted(d2.keys())
+        if k1 != k2:
+            print(f'Key mismatch')
+            print(k1)
+            print(k2)
+            return False
+
+        for k in k1:
+            if not deep_compare(d1[k], d2[k]):
+                print(f'{k} does not match')
+                return False
+        return True
+
+    # Root nodes are lists or arrays -- process each element
+    if (isinstance(d1, list) or isinstance(d1, np.ndarray)):
+        if len(d1) != len(d2):
+            return False
+        for a, b in zip(d1, d2):
+            if not deep_compare(a, b):
+                return False
+            return True
+
+    # Base case -- do simple comparisons
+    if isinstance(d1, np.float):
+        # Numpy compares nans as false
+        if np.isnan(d1) and np.isnan(d2):
+            return True
+
+    # Strings, ints, numbers, whatever
+    return d1==d2

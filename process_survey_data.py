@@ -102,21 +102,21 @@ def save_survey_to_file_tree(S_data, out_root, file_types=['xml']):
 
             # Can save xml, matlab, or pickle file types:
             for ftype in file_types:
-                    outpath = os.path.join(out_root,ftype,f'{d.year}', '{:02d}'.format(d.month))
-                    fname = f"VPM_survey_data_{d.strftime('%Y-%m-%d')}.{ftype}"
-                    outfile = os.path.join(outpath, fname)
-                    if not os.path.exists(outpath):
-                        os.makedirs(outpath)
+                outpath = os.path.join(out_root,ftype,f'{d.year}', '{:02d}'.format(d.month))
+                fname = f"VPM_survey_data_{d.strftime('%Y-%m-%d')}.{ftype}"
+                outfile = os.path.join(outpath, fname)
+                if not os.path.exists(outpath):
+                    os.makedirs(outpath)
 
                 if ftype =='xml':
                     # Write XML file
                     write_survey_XML(S_filt, outfile)
 
-                if ftype='mat':
+                if ftype=='mat':
                     # Write MAT file
                     savemat(outfile, {'survey_data' : S_filt})
 
-                if ftype='pkl':
+                if ftype=='pkl':
                     # Write pickle file
                     with open(outfile,'wb') as file:
                         pickle.dump(S_filt, file)                    
@@ -140,7 +140,7 @@ def save_survey_to_file_tree(S_data, out_root, file_types=['xml']):
         S_invalid = sorted(S_invalid, key=lambda x: get_timestamp(x))
 
         for ftype in file_types:
-            invalid_file = os.path.join(out_root,ftpye,f'invalid_entries.{ftype}')
+            invalid_file = os.path.join(out_root,ftype,f'invalid_entries.{ftype}')
 
             if ftype=='xml':
                 write_survey_XML(S_invalid, invalid_file)
@@ -173,9 +173,8 @@ def main():
     out_root = config['db_locations']['survey_tree_root']
     access_log = config['logging']['access_log']
     
-    save_XML = True
-    save_MAT = int(config['survey_config']['do_survey_MAT']) > 0    
-
+    file_types = config['survey_config']['file_types']
+    file_types = [x.strip() for x in file_types.split(',')]
     S_data = []
 
     # Get the last time we ran this script:
@@ -212,8 +211,9 @@ def main():
             S_data.extend(from_packets)
 
         if S_data:
-            save_survey_to_file_tree(S_data, out_root, save_MAT=save_MAT)
-            log_access_time(access_log, 'process_survey_data')
+            save_survey_to_file_tree(S_data, out_root, file_types=file_types)
+    
+    log_access_time(access_log, 'process_survey_data')
 
 if __name__ == "__main__":
     main()

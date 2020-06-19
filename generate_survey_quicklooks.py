@@ -83,7 +83,7 @@ def generate_survey_quicklooks(in_root, out_root,
                                 outdir = os.path.join(out_root,f'{day.year}','{:02d}'.format(day.month))
 
                                 if S_filt:            
-                                    fig = plot_survey_data_and_metadata(S_filt, filename='survey_data_with_metadata.pdf',t1=d1, t2=d2,
+                                    fig = plot_survey_data_and_metadata(S_filt,t1=d1, t2=d2,
                                                   line_plots = line_plots,
                                                   show_plots=False, lshell_file='resources/Lshell_dict.pkl')
                                     
