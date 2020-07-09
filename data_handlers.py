@@ -8,8 +8,8 @@ import struct
 import csv
 import scipy.stats
 import itertools
-
-global console_log
+import psutil
+# global console_log
 
 def decode_status(packets):
     '''
@@ -45,9 +45,9 @@ def decode_status(packets):
             
             system_config = np.flip(data[20:24])
 
+ 
             # Cast it to a binary string
             system_config = ''.join("{0:8b}".format(a) for a in system_config).replace(' ','0')
-
             gps_resets = int(system_config[29:32],base=2)
             e_deployer_counter = int(system_config[0:4],base=2)
             b_deployer_counter = int(system_config[4:8],base=2)
@@ -58,7 +58,6 @@ def decode_status(packets):
             b_enable = int(system_config[27])
             lcs_enable=int(system_config[28])
 
-
             if system_config[24]=='1':
                 survey_period = 4096;
             elif system_config[25]=='1':
@@ -66,29 +65,44 @@ def decode_status(packets):
             else:
                 survey_period = 1024;
 
+            # 6.29.2020: The above version always returns "short". Firmware bug?
+
+            # This version if we had an off-by-one index in the payload firmware:
+            # (Firmware is supposed to grab the top two bits of the survey period:
+            # e.g., 4096 = 2^12 --> 10, 2048 = 2^11 --> 01, 1024=2^10 -> 00.
+            # But the data always shows '00' when we're in long mode.)
+            # if system_config[24:26]=='00':
+            #     survey_period = 4096;
+            # elif system_config[24:26]=='10':
+            #     survey_period = 2048;
+            # elif system_config[24:26]=='01':
+            #     survey_period = 1024;
+            # else:
+            #     logger.warning(f'Undefined survey period {system_config[24:26]}')
+            #     survey_period = 0
+
             burst_pulses = int(system_config[16:24],base=2)
 
-            # print(gps_resets)
-            survey_total = data[24] + pow(2,8)*data[25] + pow(2,16)*data[26] + pow(2,24)*data[27];
-            E_total = data[28] + pow(2,8)*data[29] + pow(2,16)*data[30] + pow(2,24)*data[31];
-            B_total = data[32] + pow(2,8)*data[33] + pow(2,16)*data[34] + pow(2,24)*data[35];
-            LCS_total = data[36] + pow(2,8)*data[37] + pow(2,16)*data[38] + pow(2,24)*data[39];
-            GPS_total = data[40] + pow(2,8)*data[41] + pow(2,16)*data[42] + pow(2,24)*data[43];
-            status_total = data[44] + pow(2,8)*data[45] + pow(2,16)*data[46] + pow(2,24)*data[47];
+            data=np.array(data, dtype=np.uint8)
+
+            survey_total = struct.unpack('<I', data[24:28].tobytes())[0]
+            E_total = struct.unpack('<I', data[28:32].tobytes())[0]
+            B_total = struct.unpack('<I', data[32:36].tobytes())[0]
+            LCS_total = struct.unpack('<I', data[36:40].tobytes())[0]
+            GPS_total = struct.unpack('<I', data[40:44].tobytes())[0]
+            status_total = struct.unpack('<I', data[44:48].tobytes())[0]
             E_exp_num = data[51];
             B_exp_num = data[50];
             LCS_exp_num = data[49];
             GPS_exp_num = data[48];
             survey_exp_num = data[55];
-            uptime = data[56]+ pow(2,8)*data[57] + pow(2,16)*data[58] + pow(2,24)*data[59]
-            total_bytes_out = data[60] + pow(2,8)*data[61] + pow(2,16)*data[62] + pow(2,24)*data[63];
-            bytes_in_memory = 4*(data[64] + pow(2,8)*data[65] + pow(2,16)*data[66] + pow(2,24)*data[67]);
-            GPS_errors = data[68] + pow(2,8)*data[69];
-
+            uptime = struct.unpack('<I', data[56:60].tobytes())[0]
+            total_bytes_out = struct.unpack('<I', data[60:64].tobytes())[0]
+            bytes_in_memory = 4*struct.unpack('<I', data[64:68].tobytes())[0]
+            GPS_errors = struct.unpack('<H', data[68:70].tobytes())[0]
             mem_percent_full = 100.*(bytes_in_memory)/(128.*1024*1024);
 
             # # Decode the burst command:
-            # cfg = decode_burst_command(prev_burst_command)
 
             out_dict = dict()
             out_dict['header_timestamp'] = p['header_timestamp']
@@ -124,11 +138,9 @@ def decode_status(packets):
             out_dict['bytes_in_memory'] = bytes_in_memory
             out_dict['GPS_errors'] = GPS_errors
             out_dict['mem_percent_full'] = mem_percent_full
-
             out_dict['burst_config'] = decode_burst_command(prev_burst_command)
             out_dict['bbr_config'] = decode_uBBR_command(prev_bbr_command)
 
-            # out_data.append(nice_str)
             out_data.append(out_dict)
 
         except:
@@ -495,7 +507,7 @@ def decode_packets_CSV(data_root, filename):
         (e.g., the KSat file format)
 
     '''
-    logger = logging.getLogger(__name__ + '.decode_packets_CSV')
+    logger = logging.getLogger('decode_packets_CSV')
 
     fpath = os.path.join(data_root, filename)
     
@@ -525,6 +537,20 @@ def decode_packets_CSV(data_root, filename):
             break
     logger.debug(f'Header string: {header_string}')
 
+    # Packet indices and lengths (set in payload firmware)
+    PACKET_SIZE = 512
+    DATA_SEGMENT_LENGTH = PACKET_SIZE - 8
+    PACKET_COUNT_INDEX = 1
+    DATA_TYPE_INDEX = 5
+    EXPERIMENT_INDEX = 6
+    DATA_START_INDEX = 7
+    DATA_END_INDEX = DATA_START_INDEX + DATA_SEGMENT_LENGTH
+    CHECKSUM_INDEX = PACKET_SIZE - 2
+
+    packets = [];
+    checksum_failure_counter = 0
+    exception_counter = 0
+
     with open(fpath) as csvfile:
         # Skip up to the header row:
         for i in range(header_index):
@@ -536,89 +562,81 @@ def decode_packets_CSV(data_root, filename):
         # Parse the entry list, grab data and timestamp
         timestamps = []
         raw_data = []
-        for row in reader:
+        for ind, row in enumerate(reader):
             try:
                 if ('VPM' in row['TARGET']) and row['PACKET'] == 'PAYLOAD_INTERFACE_RECEIVE_RAW_PAYLOAD_DATA':
-                    timestamps.append(row['UTC_TIME'])
-                    raw_data.append(bytes.fromhex(row['DYNAMIC_DATA']))
+                    # timestamps.append(row['UTC_TIME'])
+                    # raw_data.append(bytes.fromhex(row['DYNAMIC_DATA']))
+                    timestamp = row['UTC_TIME']
+                    p_data = bytes.fromhex(row['DYNAMIC_DATA'])
+                    
+                    # if ind%100==0:
+                    #     logger.debug(f'ind: {ind}, mem: {psutil.virtual_memory()}')
+
+                    # Decode the current packet
+                    try:
+                        cur_packet = np.array([int(x) for x in p_data], dtype='uint8')
+                        p_inds = np.array(sorted(np.where(cur_packet==0x7E)))
+                        cur_packet = np.copy(cur_packet[p_inds[0][0]:(p_inds[0][1] + 1)])
+
+                        # Check if the bytecount or checksum fields were escaped
+                        check_escaped = (cur_packet[PACKET_SIZE - 2]!=0)*1
+                        count_escaped = (cur_packet[PACKET_SIZE - 4]!=0)*1
+
+                        # Calculate the checksum (on the unescaped data):
+                        checksum_calc = sum(cur_packet[2:CHECKSUM_INDEX - 1])%256
+
+                        # Un-escape the packet (Destructive)
+                        esc1_inds = find_sequence(cur_packet,np.array([0x7D, 0x5E])) # [7D, 5E] -> 7E
+                        cur_packet[esc1_inds] =  0x7E
+                        cur_packet = np.delete(cur_packet, esc1_inds + 1) 
+                        esc2_inds = find_sequence(cur_packet,np.array([0x7D, 0x5D])) # [7D, 5D] -> 7D
+                        cur_packet = np.delete(cur_packet, esc2_inds + 1)
+
+
+                        # Get the new indices of the checksum and bytecount fields
+                        packet_length_post_escape = len(cur_packet)
+                        checksum_index = packet_length_post_escape + check_escaped - 3
+                        bytecount_index= packet_length_post_escape + check_escaped + count_escaped - 6
+
+                        # Decode metadata fields
+                        packet_start_index = struct.unpack('>L',cur_packet[PACKET_COUNT_INDEX:(PACKET_COUNT_INDEX + 4)])[0]
+
+                        datatype = chr(cur_packet[DATA_TYPE_INDEX]) # works!
+                        experiment_number = cur_packet[EXPERIMENT_INDEX]
+                        bytecount = struct.unpack('>H', cur_packet[bytecount_index:(bytecount_index + 2)])[0]
+                        checksum = cur_packet[checksum_index]
+
+                        if (checksum - checksum_calc) != 0:
+                            checksum_failure_counter += 1
+                            logger.warning('invalid checksum at packet # %d -- skipping'%ind)
+                            continue
+
+                        # Pack the decoded packet into a dictionary, and add it to the list
+                        # (maybe there's a nicer data structure for this - but this is probably the most general case)
+                        p = dict()
+                        p['data'] = np.array(cur_packet[DATA_START_INDEX:(bytecount + DATA_START_INDEX)], dtype='uint8').tolist()
+                        p['start_ind'] = packet_start_index
+                        p['dtype'] = datatype
+                        p['exp_num'] = experiment_number
+                        p['bytecount'] = bytecount
+                        p['checksum_verify'] = (checksum - checksum_calc)==0
+                        p['packet_length'] = packet_length_post_escape
+                        p['fname'] = filename
+                        p['header_timestamp'] = datetime.datetime.fromisoformat(timestamp[0:-1]).replace(tzinfo=datetime.timezone.utc).timestamp()
+                        p['file_index'] = ind # Order of arrival in file 
+                        packets.append(p)
+                    except:
+                        exception_counter += 1
+                        logger.warning('exception at packet # %d',ind)
             except:
-                logger.info(f'skipped CSV line: {row}')
-
-    # Packet indices and lengths (set in payload firmware)
-    PACKET_SIZE = 512
-    DATA_SEGMENT_LENGTH = PACKET_SIZE - 8
-    PACKET_COUNT_INDEX = 1
-    DATA_TYPE_INDEX = 5
-    EXPERIMENT_INDEX = 6
-    DATA_START_INDEX = 7
-    DATA_END_INDEX = DATA_START_INDEX + DATA_SEGMENT_LENGTH
-    CHECKSUM_INDEX = PACKET_SIZE - 2
-
-    # Escape characters, and move packets into a list (since their length now varies)
-    packets = [];
-    checksum_failure_counter = 0
-    logger.info(f'Received {len(timestamps)} packets')
-    for ind, (timestamp, p_data) in enumerate(zip(timestamps, raw_data)):
-        try:
-            cur_packet = np.array([int(x) for x in p_data], dtype='uint8')
-            p_inds = np.array(sorted(np.where(cur_packet==0x7E)))
-            cur_packet = np.copy(cur_packet[p_inds[0][0]:(p_inds[0][1] + 1)])
-
-            # Check if the bytecount or checksum fields were escaped
-            check_escaped = (cur_packet[PACKET_SIZE - 2]!=0)*1
-            count_escaped = (cur_packet[PACKET_SIZE - 4]!=0)*1
-
-            # Calculate the checksum (on the unescaped data):
-            checksum_calc = sum(cur_packet[2:CHECKSUM_INDEX - 1])%256
-
-            # Un-escape the packet (Destructive)
-            esc1_inds = find_sequence(cur_packet,np.array([0x7D, 0x5E])) # [7D, 5E] -> 7E
-            cur_packet[esc1_inds] =  0x7E
-            cur_packet = np.delete(cur_packet, esc1_inds + 1) 
-            esc2_inds = find_sequence(cur_packet,np.array([0x7D, 0x5D])) # [7D, 5D] -> 7D
-            cur_packet = np.delete(cur_packet, esc2_inds + 1)
-
-
-            # Get the new indices of the checksum and bytecount fields
-            packet_length_post_escape = len(cur_packet)
-            checksum_index = packet_length_post_escape + check_escaped - 3
-            bytecount_index= packet_length_post_escape + check_escaped + count_escaped - 6
-
-            # Decode metadata fields
-            packet_start_index = struct.unpack('>L',cur_packet[PACKET_COUNT_INDEX:(PACKET_COUNT_INDEX + 4)])[0]
-
-            datatype = chr(cur_packet[DATA_TYPE_INDEX]) # works!
-            experiment_number = cur_packet[EXPERIMENT_INDEX]
-            bytecount = struct.unpack('>H', cur_packet[bytecount_index:(bytecount_index + 2)])[0]
-            checksum = cur_packet[checksum_index]
-
-            if (checksum - checksum_calc) != 0:
-                checksum_failure_counter += 1
-                logger.warning('invalid checksum at packet # %d -- skipping'%ind)
-                continue
-
-
-            # Pack the decoded packet into a dictionary, and add it to the list
-            # (maybe there's a nicer data structure for this - but this is probably the most general case)
-            p = dict()
-            p['data'] = np.array(cur_packet[DATA_START_INDEX:(bytecount + DATA_START_INDEX)], dtype='uint8').tolist()
-            p['start_ind'] = packet_start_index
-            p['dtype'] = datatype
-            p['exp_num'] = experiment_number
-            p['bytecount'] = bytecount
-            p['checksum_verify'] = (checksum - checksum_calc)==0
-            p['packet_length'] = packet_length_post_escape
-            p['fname'] = filename
-            p['header_timestamp'] = datetime.datetime.fromisoformat(timestamp[0:-1]).replace(tzinfo=datetime.timezone.utc).timestamp()
-            p['file_index'] = ind # Order of arrival in file 
-            packets.append(p)
-        except:
-            logger.warning('exception at packet # %d',ind)
+                logger.info(f'skipped CSV line {ind}: {row}')
         
-    if checksum_failure_counter > 0:
-        logger.warning(f'--------------- {checksum_failure_counter} failed checksums ---------------')
+    # if checksum_failure_counter > 0:
+        # logger.warning(f'--------------- {checksum_failure_counter} failed checksums ---------------')
 
     logger.info(f'decoded {len(packets)} packets')
+    logger.info(f'({checksum_failure_counter} failed checksums; {excepttion_counter} exceptions)')
 
     return packets
 
