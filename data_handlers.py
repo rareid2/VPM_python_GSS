@@ -635,8 +635,7 @@ def decode_packets_CSV(data_root, filename):
     # if checksum_failure_counter > 0:
         # logger.warning(f'--------------- {checksum_failure_counter} failed checksums ---------------')
 
-    logger.info(f'decoded {len(packets)} packets')
-    logger.info(f'({checksum_failure_counter} failed checksums; {excepttion_counter} exceptions)')
+    logger.info(f'decoded {len(packets)} packets ({checksum_failure_counter} failed checksums, {exception_counter} exceptions)')
 
     return packets
 
