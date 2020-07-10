@@ -534,8 +534,9 @@ def decode_packets_CSV(data_root, filename):
         if counts>3:
             logger.info(f'using delimeter "{delimeter}"')
             header_string = header_line.split(delimeter)
+            logger.debug(f'Header string: {header_string}')
             break
-    logger.debug(f'Header string: {header_string}')
+    
 
     # Packet indices and lengths (set in payload firmware)
     PACKET_SIZE = 512

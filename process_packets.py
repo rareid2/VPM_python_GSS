@@ -169,9 +169,9 @@ def process_packets():
                                     logging.info(f'wrote to db: line ID = {line_id}')
                                     conn.commit()
                                     conn.close()
-                                    
+
                         except:
-                            logger.warning(f'Problem loading {fname}')
+                            logging.warning(f'Problem loading {fname}')
 
 
 
