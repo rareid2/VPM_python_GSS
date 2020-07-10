@@ -122,6 +122,8 @@ def process_packets():
     db_name = config['db_locations']['packet_db_file']
     access_log = config['logging']['access_log']
 
+    do_TLM = True
+    do_CSV = True
 
     logging.info(f'input paths: {in_roots}')
     
@@ -140,22 +142,39 @@ def process_packets():
     for in_root in in_roots:
         logging.info(f'doing {in_root}:')
 
-        packets = load_from_telemetry(in_root, 
-                                     files_to_skip=files_to_skip,
-                                     do_CSV = True,
-                                     do_TLM = True)
+        for root, dirs, files in os.walk(in_root):
 
-        
-        if packets:
-            # print(f' Keys: {packets[0].keys()}')
-            if 'files' in output_type:
-                save_packets_to_file_tree(packets, out_root)
-            if 'db' in output_type:
-                conn = connect_packet_db(db_name)
-                line_id = write_to_db(conn, packets, db_field='packets')
-                logging.info(f'wrote to db: line ID = {line_id}')
-                conn.commit()
-                conn.close()
+                for fname in files:
+                    if fname in files_to_skip:
+                        logging.debug(f'File {fname} already in database; skipping')
+                    else:
+
+                        packets = []
+                        try:
+                            if do_TLM and fname.endswith('.tlm'):
+                                logging.info(f'loading TLM from {root} {fname}')
+                                # Load packets from each TLM file, tag with the source filename, and decode
+                                packets = decode_packets_TLM(root, fname)
+
+                            if do_CSV and fname.endswith('.csv'):
+                                logging.info(f'loading CSV from {root} {fname}')
+                                packets = decode_packets_CSV(root, fname)
+
+                            if packets:
+                                if 'files' in output_type:
+                                    save_packets_to_file_tree(packets, out_root)
+                                if 'db' in output_type:
+                                    conn = connect_packet_db(db_name)
+                                    line_id = write_to_db(conn, packets, db_field='packets')
+                                    logging.info(f'wrote to db: line ID = {line_id}')
+                                    conn.commit()
+                                    conn.close()
+                                    
+                        except:
+                            logger.warning(f'Problem loading {fname}')
+
+
+
 
     if 'db' in output_type:
         log_access_time(access_log, 'process_packets')
