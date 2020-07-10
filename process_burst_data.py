@@ -281,8 +281,12 @@ def main():
     file_types = config['burst_config']['file_types']
     file_types = [x.strip() for x in file_types.split(',')]
 
-    do_plots = config['burst_config']['do_plots']
-    do_maps  = config['burst_config']['do_maps']
+    do_plots = int(config['burst_config']['do_plots']) > 0
+    do_maps  = int(config['burst_config']['do_maps']) > 0
+    
+ 
+
+
     lookback_mins = int(config['burst_config']['lookback_time_minutes'])
     cal_file = config['burst_config']['calibration_file']
     dpi = int(config['burst_config']['dpi'])
@@ -296,8 +300,14 @@ def main():
 
     last_timestamp = get_last_access_time(access_log,'process_burst_data')
     last_time = datetime.datetime.utcfromtimestamp(last_timestamp)
-    logging.info(f'Last run time: {last_time} UTC')
 
+    logging.info(f'------- process_burst_data --------')
+    logging.info(f'Last run time: {last_time} UTC')
+    logging.info(f'Do_plots: {do_plots}')
+    logging.info(f'Do_maps:  {do_maps}')
+    logging.info(f'packet_db: {packet_db}')
+    logging.info(f'file types: {file_types}')
+    logging.info(f'Out root: {out_root}')
     # Get any sets of headers / footers to check:
     pairs = get_burst_pairs(packet_db, date_added=last_time, max_lookback_time=max_lookback_time)
 
