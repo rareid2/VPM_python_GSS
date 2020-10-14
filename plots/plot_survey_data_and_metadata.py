@@ -58,8 +58,8 @@ def plot_survey_data_and_metadata(fig, S_data,
 
     if plot_map or (len(line_plots) > 0):
         # The full plot: 
-        gs_root = GS.GridSpec(2, 2, height_ratios=[1,2.5], width_ratios=[1,1.5],  wspace = 0.2, hspace = 0.1, figure=fig)
-        gs_data = GS.GridSpecFromSubplotSpec(2, 2, width_ratios=[20, 1], wspace = 0.05, hspace = 0.05, subplot_spec=gs_root[:,1])
+        gs_root = GS.GridSpec(2, 2, height_ratios=[1,2], width_ratios=[1,1.5],  wspace = 0.15, hspace = 0.05, figure=fig)
+        gs_data = GS.GridSpecFromSubplotSpec(2, 2, height_ratios=[0.2,10], width_ratios=[20, 0.5], wspace = 0.025, hspace = 0.025, subplot_spec=gs_root[:,1])
         m_ax = fig.add_subplot(gs_root[0,0])
     else:
         gs_data = GS.GridSpec(2, 2, width_ratios=[20, 1], wspace = 0.05, hspace = 0.05, figure = fig)
@@ -122,13 +122,13 @@ def plot_survey_data_and_metadata(fig, S_data,
     logger.debug(f'E has shape {np.shape(E)}, B has shape {np.shape(B)}')
 
     # gs_data = GS.GridSpec(2, 2, width_ratios=[20, 1], wspace = 0.05, hspace = 0.05, subplot_spec=gs_root[1])
-    ax1 = fig.add_subplot(gs_data[0,0])
-    ax2 = fig.add_subplot(gs_data[1,0], sharex=ax1, sharey=ax1)
-    e_cbax = fig.add_subplot(gs_data[0,1])
-    b_cbax = fig.add_subplot(gs_data[1,1])
+    # ax1 = fig.add_subplot(gs_data[0,0])
+    ax2 = fig.add_subplot(gs_data[1,0]) # sharex=ax1, sharey=ax1)
+    # e_cbax = fig.add_subplot(gs_data[0,1])
+    e_cbax = fig.add_subplot(gs_data[1,1])
 
     e_clims = [50,255] #[0,255] #[-80,-40]
-    b_clims = [150,255] #[0,255] #[-80,-40]
+    # b_clims = [150,255] #[0,255] #[-80,-40]
 
     date_edges = np.insert(dates, 0, dates[0] - datetime.timedelta(seconds=26))
 
@@ -141,19 +141,19 @@ def plot_survey_data_and_metadata(fig, S_data,
     B_gapped = np.insert(B.astype('float'), gaps - 1, np.nan*np.ones([1,512]), axis=0)
 
     # Plot E data
-    p1 = ax1.pcolormesh(d_gapped,F,E_gapped.T, vmin=e_clims[0], vmax=e_clims[1], shading='flat', cmap = cm);
-    p2 = ax2.pcolormesh(d_gapped,F,B_gapped.T, vmin=b_clims[0], vmax=b_clims[1], shading='flat', cmap = cm);
-    cb1 = fig.colorbar(p1, cax = e_cbax)
-    cb2 = fig.colorbar(p2, cax = b_cbax)
-    cb1.set_label(f'Raw value [{e_clims[0]}-{e_clims[1]}]')
-    cb2.set_label(f'Raw value [{b_clims[0]}-{b_clims[1]}]')
+    # p1 = ax1.pcolormesh(d_gapped,F,E_gapped.T, vmin=e_clims[0], vmax=e_clims[1], shading='flat', cmap = cm);
+    p2 = ax2.pcolormesh(d_gapped,F,E_gapped.T, vmin=e_clims[0], vmax=e_clims[1], shading='flat', cmap = cm);
+    # cb1 = fig.colorbar(p1, cax = e_cbax)
+    cb2 = fig.colorbar(p2, cax = e_cbax)
+    # cb1.set_label(f'Raw value [{e_clims[0]}-{e_clims[1]}]')
+    cb2.set_label(f'Raw value [{e_clims[0]}-{e_clims[1]}]')
 
     # # vertical lines at each edge (kinda nice, but messy for big plots)
     # g1 = ax1.vlines(dates, 0, 40, linewidth=0.2, alpha=0.5, color='w')
     # g2 = ax2.vlines(dates, 0, 40, linewidth=0.2, alpha=0.5, color='w')
 
-    ax1.set_xticklabels([])
-    ax1.set_ylim([0,40])
+    ax2.set_xticklabels([])
+    # ax1.set_ylim([0,40])
     ax2.set_ylim([0,40])
 
     formatter = mdates.DateFormatter('%H:%M:%S')
@@ -162,8 +162,8 @@ def plot_survey_data_and_metadata(fig, S_data,
     ax2.set_xlabel("Time (H:M:S) on \n%s"%datetime.datetime.utcfromtimestamp(T[0]).strftime("%Y-%m-%d"))
     # ax2.set_xlabel("Time (H:M:S)")
 
-    ax1.set_ylabel('E channel\nFrequency [kHz]')
-    ax2.set_ylabel('B channel\nFrequency [kHz]')
+    # ax1.set_ylabel('E channel\nFrequency [kHz]')
+    ax2.set_ylabel('E channel Frequency [kHz]')
 
     # -----------------------------------
     # Ground track Map
@@ -218,8 +218,8 @@ def plot_survey_data_and_metadata(fig, S_data,
             m_ax.s = m.scatter(np.array(sx)[hits],np.array(sy)[hits],c=T_gps[hits], marker='.', s=10, cmap = get_cmap('plasma'), zorder=100, picker=5)
 
         # Attach callback
-        ax1.callbacks.connect('xlim_changed', onzoom)
-        # ax2.callbacks.connect('xlim_changed', onzoom)
+        # ax1.callbacks.connect('xlim_changed', onzoom)
+        ax2.callbacks.connect('xlim_changed', onzoom)
 
         cid= fig.canvas.mpl_connect('pick_event', lambda event: onpick(event))
     # -----------------------------------
@@ -291,7 +291,7 @@ def plot_survey_data_and_metadata(fig, S_data,
 
 
         # Link data x axes:
-        ax_lines[0].get_shared_x_axes().join(ax_lines[0], ax1)
+        # ax_lines[0].get_shared_x_axes().join(ax_lines[0], ax1)
         ax_lines[0].get_shared_x_axes().join(ax_lines[0], ax2)
 
         ax_lines[-1].set_xticklabels(ax_lines[-1].get_xticklabels(), rotation=30)
