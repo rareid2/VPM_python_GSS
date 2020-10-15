@@ -14,6 +14,12 @@ from data_handlers import decode_status
 from data_handlers import decode_uBBR_command
 import pickle
 
+from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
+from plots.plot_burst_map import plot_burst_map
+
+# updated to no longer plot B-field data and add 
+# map to same figure
+
 def plot_burst_TD(fig, burst, cal_data = None):
     
     logger = logging.getLogger("plot_burst_TD")
@@ -105,14 +111,23 @@ def plot_burst_TD(fig, burst, cal_data = None):
     if cfg['TD_FD_SELECT'] == 1:
 # --------- Time domain plots  -----------
         # fig = plt.figure()
-        gs = GridSpec(2, 3, width_ratios=[20, 20, 1],  wspace = 0.2, hspace = 0.1)
+        fig.set_size_inches(10,8)
+        gs = GridSpec(2, 2, height_ratios=[1.25,1], wspace = 0.2, hspace = 0.25)
         E_TD = fig.add_subplot(gs[0,0])
-        B_TD = fig.add_subplot(gs[1,0], sharex=E_TD)
+        # B_TD = fig.add_subplot(gs[1,0], sharex=E_TD)
         E_FD = fig.add_subplot(gs[0,1], sharex=E_TD)
-        B_FD = fig.add_subplot(gs[1,1], sharex=E_FD)
-        cb1  = fig.add_subplot(gs[0,2])
-        cb2  = fig.add_subplot(gs[1,2])
+        # B_FD = fig.add_subplot(gs[1,1], sharex=E_FD)
+        # cb1  = fig.add_subplot(gs[0,2])
+        # cb2  = fig.add_subplot(gs[1,2])
 
+        # add in burst map to plot -- werid workaround but it fixed it
+        map_ax = fig.add_subplot(gs[1,0:2])
+        box = map_ax.get_position()
+        box.x0 = box.x0 - 0.13
+        box.x1 = box.x1 - 0.13
+        map_ax.set_position(box)
+        gstr = plot_burst_map(map_ax, burst['G'])
+        fig.text(0.68, 0.13, gstr, fontsize='9') # ha='center', va='bottom')
 
 
         # Construct the appropriate time and frequency axes
@@ -145,7 +160,7 @@ def plot_burst_TD(fig, burst, cal_data = None):
         
 
         E_TD.plot(t_axis[0:len(burst['E'])], E_coef*burst['E'])
-        B_TD.plot(t_axis[0:len(burst['B'])], B_coef*burst['B'])
+        # B_TD.plot(t_axis[0:len(burst['B'])], B_coef*burst['B'])
 
 
         # E_TD.set_ylim(td_lims)
@@ -182,7 +197,9 @@ def plot_burst_TD(fig, burst, cal_data = None):
         E_S_mag[np.isinf(E_S_mag)] = -100
         logger.debug(f'E data min/max: {np.min(E_S_mag)}, {np.max(E_S_mag)}')
         pe = E_FD.pcolorfast(tt,ff/1000,E_S_mag, cmap = cm,  vmin=e_clims[0], vmax=e_clims[1])
-        ce = fig.colorbar(pe, cax=cb1)
+        cax_divider = make_axes_locatable(E_FD)
+        ce_ax = cax_divider.append_axes('right', size='7%', pad='5%')
+        ce = fig.colorbar(pe, cax=ce_ax)
 
         # B spectrogram
         ff,tt, FB = scipy.signal.spectrogram(B_td_spaced, fs=fs_equiv, window=window,
@@ -190,18 +207,18 @@ def plot_burst_TD(fig, burst, cal_data = None):
         B_S_mag = 20*np.log10(np.sqrt(FB))
         B_S_mag[np.isinf(B_S_mag)] = -100
         logger.debug(f'B data min/max: {np.min(B_S_mag)}, {np.max(B_S_mag)}')
-        pb = B_FD.pcolorfast(tt,ff/1000, B_S_mag, cmap = cm, vmin=b_clims[0], vmax=b_clims[1])
-        cb = fig.colorbar(pb, cax=cb2)
+        # pb = B_FD.pcolorfast(tt,ff/1000, B_S_mag, cmap = cm, vmin=b_clims[0], vmax=b_clims[1])
+        # cb = fig.colorbar(pb, cax=cb2)
 
         E_TD.set_ylabel(f'E Amplitude\n[{E_unit_string}]')
-        B_TD.set_ylabel(f'B Amplitude\n[{B_unit_string}]')
+        # B_TD.set_ylabel(f'B Amplitude\n[{B_unit_string}]')
         E_FD.set_ylabel('Frequency [kHz]')
-        B_FD.set_ylabel('Frequency [kHz]')
-        B_TD.set_xlabel('Time [sec from start]')
-        B_FD.set_xlabel('Time [sec from start]')
+        # B_FD.set_ylabel('Frequency [kHz]')
+        E_TD.set_xlabel('Time [sec from start]')
+        E_FD.set_xlabel('Time [sec from start]')
 
         ce.set_label(f'dB[{E_unit_string}]')
-        cb.set_label(f'dB[{B_unit_string}]')
+        # cb.set_label(f'dB[{B_unit_string}]')
 
         if bbr_config:
             fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s, B gain = %s, B filter = %s'
@@ -280,7 +297,7 @@ def plot_burst_FD(fig, burst, cal_data = None):
     e_clims = clims + 20*np.log10(E_coef*ADC_max_value/ADC_max_volts)
     b_clims = clims + 20*np.log10(B_coef*ADC_max_value/ADC_max_volts)
 
-
+    fig.tight_layout()
 
     if cfg['TD_FD_SELECT'] == 0:
 # --------- Frequency domain plots  -----------

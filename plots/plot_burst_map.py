@@ -6,13 +6,14 @@ from compute_ground_track import compute_ground_track
 from matplotlib.cm import get_cmap
 from configparser import ConfigParser
 
-def plot_burst_map(fig, gps_data, 
+def plot_burst_map(sub_axis, gps_data, 
         show_terminator = True, plot_trajectory=True, show_transmitters=True,
         TLE_file = None, TX_file='resources/nb_transmitters.conf'):
 
     logger = logging.getLogger()
 
-    m_ax = fig.add_subplot(1,1,1)
+    #m_ax = fig.add_subplot(1,1,1)
+    m_ax = sub_axis
 
     m = Basemap(projection='mill',lon_0=0,ax=m_ax, llcrnrlon=-180,llcrnrlat=-70,urcrnrlon=180,urcrnrlat=70)
 
@@ -96,15 +97,14 @@ def plot_burst_map(fig, gps_data,
             s = m.scatter(sx,sy,c=T_gps, marker='o', s=20, cmap = get_cmap('plasma'), zorder=100, label='GPS')
         except:
             logger.warning('Problem plotting narrowband transmitters')
-    m_ax.legend()
+    m_ax.legend(bbox_to_anchor=(1.05,1), loc='upper left', ncol=2)
 
     gstr = ''
     for entry in gps_data:
         time = datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(entry['timestamp']),'%D %H:%M:%S')
         tloc = entry['time_status'] > 20
         ploc = entry['solution_status'] ==0
-        gstr+= '{:s} ({:1.2f}, {:1.2f}): time lock: {:b} position lock: {:b}\n'.format(time, entry['lat'], entry['lon'], tloc,ploc)
-    
-    fig.text(.5, 0, gstr, ha='center', va='bottom')
+        gstr+= '{:s} ({:1.2f}, {:1.2f}):\ntime lock: {:b} position lock: {:b}\n'.format(time, entry['lat'], entry['lon'], tloc,ploc)
 
-    fig.tight_layout()
+    # m_ax.text(1, 0, gstr, fontsize='10') # ha='center', va='bottom')
+    return gstr

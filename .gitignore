@@ -1,1 +1,6 @@
+# ignore my testing script
 test_VPM_software.py
+# ignore the pycache - auto generated
+__pycache__/*
+# ignore plots
+*.png
