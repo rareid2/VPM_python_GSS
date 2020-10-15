@@ -207,7 +207,7 @@ def save_burst_to_file_tree(burst_data, out_root, filetypes):
                     pickle.dump(b, file)
 
 
-def gen_burst_plots(bursts, out_root, do_plots=True, do_maps=True,
+def gen_burst_plots(bursts, out_root, do_plots=True, do_maps=False,
     dpi=150, cal_file=None,TX_file=None, TLE_file=None):
 
     logger = logging.getLogger('gen_burst_plots')
