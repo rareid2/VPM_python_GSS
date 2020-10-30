@@ -80,6 +80,7 @@ def plot_burst_TD(fig, burst, cal_data = None):
         bbr_config = None
 
     # ---------- Calibration coefficients ------
+    """
     ADC_max_value = 32768. # 16 bits, twos comp
     ADC_max_volts = 1.0    # ADC saturates at +- 1 volt
 
@@ -100,13 +101,19 @@ def plot_burst_TD(fig, burst, cal_data = None):
     else:
         E_unit_string = 'V @ ADC'
         B_unit_string = 'V @ ADC'
+    """
+    E_unit_string = 'uV/m' # now calibrated to uV/m
 
     # Scale the spectrograms -- A perfect sine wave will have ~-3dB amplitude.
     # Scaling covers 14 bits of dynamic range, with a maximum at each channel's theoretical peak
-    clims = np.array([-6*14, -3]) #[-96, -20]
-    e_clims = clims + 20*np.log10(E_coef*ADC_max_value/ADC_max_volts)
-    b_clims = clims + 20*np.log10(B_coef*ADC_max_value/ADC_max_volts)
-
+    #clims = np.array([-6*14, -3]) #[-96, -20]
+    #e_clims = clims + 20*np.log10(E_coef*ADC_max_value/ADC_max_volts)
+    #b_clims = clims + 20*np.log10(B_coef*ADC_max_value/ADC_max_volts)
+    
+    e_clims = np.array([-40, 10]) # for newly calibrated data
+    E_coef = 1/29.56 # calibrate into uV/m units
+    B_coef = 1
+    
     # Generate time axis
     if cfg['TD_FD_SELECT'] == 1:
 # --------- Time domain plots  -----------
@@ -192,14 +199,20 @@ def plot_burst_TD(fig, burst, cal_data = None):
 
         # E spectrogram -- "spectrum" scaling -> V^2; "density" scaling -> V^2/Hz
         ff,tt, FE = scipy.signal.spectrogram(E_td_spaced, fs=fs_equiv, window=window,
-                    nperseg=nfft, noverlap=nfft*overlap,mode='psd',scaling='spectrum')
+                    nperseg=nfft, noverlap=nfft*overlap,mode='psd',scaling='density') # changed to density
         E_S_mag = 20*np.log10(np.sqrt(FE))
         E_S_mag[np.isinf(E_S_mag)] = -100
         logger.debug(f'E data min/max: {np.min(E_S_mag)}, {np.max(E_S_mag)}')
+        # what does pe do? 
         pe = E_FD.pcolorfast(tt,ff/1000,E_S_mag, cmap = cm,  vmin=e_clims[0], vmax=e_clims[1])
         cax_divider = make_axes_locatable(E_FD)
         ce_ax = cax_divider.append_axes('right', size='7%', pad='5%')
         ce = fig.colorbar(pe, cax=ce_ax)
+
+        # save output
+        np.savetxt('burstE.txt', FE, delimiter=",")
+        np.savetxt('burstT.txt', tt, delimiter=",")
+        np.savetxt('burstF.txt', ff, delimiter=",")
 
         # B spectrogram
         ff,tt, FB = scipy.signal.spectrogram(B_td_spaced, fs=fs_equiv, window=window,

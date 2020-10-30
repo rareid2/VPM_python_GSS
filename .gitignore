@@ -4,3 +4,5 @@ test_VPM_software.py
 __pycache__/*
 # ignore plots
 *.png
+# ignore txt files
+*.txt

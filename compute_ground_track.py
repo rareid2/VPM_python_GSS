@@ -74,10 +74,10 @@ def compute_ground_track(TLE, t1, t2, tstep = datetime.timedelta(seconds=30)):
 
 def load_TLE_library(TLE_lib_file):
     ''' Load the JSON file of TLE entries '''
-
+    
     with open(TLE_lib_file,'r') as file:
         TLE_lib = json.load(file)
-        
+    
     TLE_lib = sorted(TLE_lib, key=lambda x: x['EPOCH'])
 
     for T in TLE_lib:
@@ -150,7 +150,8 @@ def fill_missing_GPS_entries(G_data, TLE_lib=None):
         
         # "solution_status" is defined by Novatel OEM7 manual, table 80.
         # 0 = good solution, anything else is problematic
-        if G['solution_status']!=0: 
+        # time status > 20 = at least a coarse time lock
+        if (G['solution_status']!=0) and (G['time_status'] > 20): 
 
             # Bad GPS entry! We can rebuild him... we have the technology
             t = G['timestamp']

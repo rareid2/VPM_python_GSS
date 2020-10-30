@@ -119,6 +119,23 @@ def plot_survey_data_and_metadata(fig, S_data,
     # Spectrograms
     # -----------------------------------
     E = np.array(E); B = np.array(B); T = np.array(T);
+    
+    E_new = [] # empty list for calibrated data
+    # calibrate and shift for long v short survey
+    for dti, dt in enumerate(T):
+        if dti == len(T) - 1:
+            continue
+        survey_dt = int(T[dti+1] - dt)
+        if survey_dt < 8 or survey_dt_prev < 8: # catches last time point
+            dE_new = 10*np.log10(2**(E[dti]/8)) - 55 # calibrate for short survey
+        else:
+            dE_new = 10*np.log10(2**(E[dti]/8)) - 58 # fix for long survey
+
+        survey_dt_prev = survey_dt
+        E_new.append(dE_new)
+
+    E = np.array(E_new) # replace E array
+
     logger.debug(f'E has shape {np.shape(E)}, B has shape {np.shape(B)}')
 
     # gs_data = GS.GridSpec(2, 2, width_ratios=[20, 1], wspace = 0.05, hspace = 0.05, subplot_spec=gs_root[1])
@@ -127,7 +144,7 @@ def plot_survey_data_and_metadata(fig, S_data,
     # e_cbax = fig.add_subplot(gs_data[0,1])
     e_cbax = fig.add_subplot(gs_data[1,1])
 
-    e_clims = [50,255] #[0,255] #[-80,-40]
+    e_clims = [-40,10] #[0,255] #[-80,-40]
     # b_clims = [150,255] #[0,255] #[-80,-40]
 
     date_edges = np.insert(dates, 0, dates[0] - datetime.timedelta(seconds=26))
@@ -146,7 +163,7 @@ def plot_survey_data_and_metadata(fig, S_data,
     # cb1 = fig.colorbar(p1, cax = e_cbax)
     cb2 = fig.colorbar(p2, cax = e_cbax)
     # cb1.set_label(f'Raw value [{e_clims[0]}-{e_clims[1]}]')
-    cb2.set_label(f'Raw value [{e_clims[0]}-{e_clims[1]}]')
+    cb2.set_label('dB[uV/m]')
 
     # # vertical lines at each edge (kinda nice, but messy for big plots)
     # g1 = ax1.vlines(dates, 0, 40, linewidth=0.2, alpha=0.5, color='w')
@@ -300,9 +317,13 @@ def plot_survey_data_and_metadata(fig, S_data,
 
         ax_lines[-1].set_xlim([t1,t2])
 
-
+    # save and send the data
+    np.savetxt('surveyE.txt', E, delimiter=",")
+    np.savetxt('surveyF.txt', F, delimiter=",")
+    np.savetxt('surveyT.txt', T, delimiter=",")
+    
     fig.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.12)
     # fig.suptitle(f"VPM Survey Data\n {dts[0].strftime('%D%, %H:%m:%S')} -- {dts[-1].strftime('%D%, %H:%m:%S')}")
     fig.suptitle(f"VPM Survey Data\n {t1.strftime('%D, %H:%M:%S')} -- {t2.strftime('%D, %H:%M:%S')}")
-    # fig.show()
+    fig.savefig('survey.png')
     return fig
