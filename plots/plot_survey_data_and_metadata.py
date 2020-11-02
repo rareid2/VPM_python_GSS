@@ -122,6 +122,7 @@ def plot_survey_data_and_metadata(fig, S_data,
     
     E_new = [] # empty list for calibrated data
     # calibrate and shift for long v short survey
+    survey_dt_prev = 10 # starting val greater than 8
     for dti, dt in enumerate(T):
         if dti == len(T) - 1:
             continue
@@ -163,7 +164,7 @@ def plot_survey_data_and_metadata(fig, S_data,
     # cb1 = fig.colorbar(p1, cax = e_cbax)
     cb2 = fig.colorbar(p2, cax = e_cbax)
     # cb1.set_label(f'Raw value [{e_clims[0]}-{e_clims[1]}]')
-    cb2.set_label('dB[uV/m]')
+    cb2.set_label('dB[(uV/m)^2/Hz]')
 
     # # vertical lines at each edge (kinda nice, but messy for big plots)
     # g1 = ax1.vlines(dates, 0, 40, linewidth=0.2, alpha=0.5, color='w')

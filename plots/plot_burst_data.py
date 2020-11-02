@@ -210,9 +210,16 @@ def plot_burst_TD(fig, burst, cal_data = None):
         ce = fig.colorbar(pe, cax=ce_ax)
 
         # save output
+        print('FE', np.shape(FE))
+        print('tt', np.shape(tt))
+        print('ff', np.shape(ff))
+
         np.savetxt('burstE.txt', FE, delimiter=",")
         np.savetxt('burstT.txt', tt, delimiter=",")
         np.savetxt('burstF.txt', ff, delimiter=",")
+
+        Eoutput = np.genfromtxt('burstE.txt', delimiter=',')
+        print('E', np.shape(Eoutput))
 
         # B spectrogram
         ff,tt, FB = scipy.signal.spectrogram(B_td_spaced, fs=fs_equiv, window=window,
@@ -230,14 +237,14 @@ def plot_burst_TD(fig, burst, cal_data = None):
         E_TD.set_xlabel('Time [sec from start]')
         E_FD.set_xlabel('Time [sec from start]')
 
-        ce.set_label(f'dB[{E_unit_string}]')
+        ce.set_label(f'dB[(uV/m)^2/Hz]')
         # cb.set_label(f'dB[{B_unit_string}]')
 
         if bbr_config:
-            fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s, B gain = %s, B filter = %s'
-                %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT'], bbr_config['B_GAIN'], bbr_config['B_FILT']))
+            fig.suptitle('Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s'
+                %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT']))
         else:
-            fig.suptitle('Time-Domain Burst\n%s - n = %d, %d on / %d off'
+            fig.suptitle('Burst\n%s - n = %d, %d on / %d off'
                 %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off))
 
     # # Save it!
