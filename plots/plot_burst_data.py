@@ -111,7 +111,7 @@ def plot_burst_TD(fig, burst, cal_data = None):
     #b_clims = clims + 20*np.log10(B_coef*ADC_max_value/ADC_max_volts)
     
     e_clims = np.array([-40, 10]) # for newly calibrated data
-    E_coef = 1/29.56 # calibrate into uV/m units
+    E_coef = 1e6/(1.1*82*10*32768) # calibrate into uV/m units
     B_coef = 1
     
     # Generate time axis
@@ -241,10 +241,10 @@ def plot_burst_TD(fig, burst, cal_data = None):
         # cb.set_label(f'dB[{B_unit_string}]')
 
         if bbr_config:
-            fig.suptitle('Burst\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s'
+            fig.suptitle('VPM Burst Data\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s'
                 %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT']))
         else:
-            fig.suptitle('Burst\n%s - n = %d, %d on / %d off'
+            fig.suptitle('VPM Burst Data\n%s - n = %d, %d on / %d off'
                 %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off))
 
     # # Save it!
