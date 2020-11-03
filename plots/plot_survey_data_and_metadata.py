@@ -8,6 +8,7 @@ from plots.parula_colormap import parula
 import logging
 import os
 import pickle
+from configparser import ConfigParser # for tx map
 
 try:
     from mpl_toolkits.basemap import Basemap
@@ -26,6 +27,31 @@ except:
 from scipy.interpolate import interp1d, interp2d
 from matplotlib.cm import get_cmap
 from mpl_toolkits.basemap.solar import daynight_terminator
+
+# copied this function from burst map plot and removed label
+def show_transmitters_survey(m, TX_file):
+    try:
+        call_sign_config = ConfigParser()
+        try:
+            fp = open(TX_file)
+            call_sign_config.read_file(fp)
+            fp.close()
+        except:
+            logger.warning('failed to load transmitters file')
+
+        for tx_name, vals in call_sign_config.items('NB_Transmitters'):
+            vv = vals.split(',')
+            tx_freq = float(vv[0])
+            tx_lat  = float(vv[1])
+            tx_lon  = float(vv[2])
+            px,py = m(tx_lon, tx_lat)
+            p = m.scatter(px,py, marker='p', s=10, color='r',zorder=99)
+            #name_str = '{:s}  \n{:0.1f}  '.format(tx_name.upper(), tx_freq/1000)
+            #m_ax.text(px, py, name_str, fontsize=8, fontweight='bold', ha='left',
+            #    va='bottom', color='k', label='TX')
+        p.set_label('TX')
+    except:
+        logger.warning('Problem plotting narrowband transmitters')
 
 
 def is_day(t, lats, lons):
@@ -200,6 +226,9 @@ def plot_survey_data_and_metadata(fig, S_data,
         m.drawmeridians(np.arange(m.lonmin,m.lonmax+30,60),labels=[0,0,1,0]);
         m.drawmapboundary(fill_color='cyan');
         m.fillcontinents(color='white',lake_color='cyan');
+
+        TX_file='resources/nb_transmitters.conf'
+        show_transmitters_survey(m, TX_file) # add dots for tx
 
         # This is sloppy -- we need to stash the scatterplot in a persistent object,
         # but because this is just a script and not a class, it vanishes. So we're

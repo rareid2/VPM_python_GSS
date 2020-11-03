@@ -1366,6 +1366,7 @@ def decode_survey_data(packets, separation_time = 4.5):
                     # d['header_epoch_sec'] = cur_packets[s1]['header_epoch_sec']
                     d['header_timestamp'] = cur_packets[s1]['header_timestamp']
                     d['exp_num'] = e_num
+                    d['cal_ADC_2_uV/m'] = 5
                     S_data.append(d)
 
                 else:
