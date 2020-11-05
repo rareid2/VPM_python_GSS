@@ -6,3 +6,5 @@ __pycache__/*
 *.png
 # ignore txt files
 *.txt
+# ignore pyc
+*.pyc

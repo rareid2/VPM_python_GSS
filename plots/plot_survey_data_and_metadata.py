@@ -146,6 +146,8 @@ def plot_survey_data_and_metadata(fig, S_data,
     # -----------------------------------
     E = np.array(E); B = np.array(B); T = np.array(T);
     
+    gain_f = 1 # or 10 (low) ---- switch to high gain march 18
+
     E_new = [] # empty list for calibrated data
     # calibrate and shift for long v short survey
     survey_dt_prev = 10 # starting val greater than 8
@@ -154,9 +156,9 @@ def plot_survey_data_and_metadata(fig, S_data,
             continue
         survey_dt = int(T[dti+1] - dt)
         if survey_dt < 8 or survey_dt_prev < 8: # catches last time point
-            dE_new = 10*np.log10(2**(E[dti]/8)) - 55 # calibrate for short survey
+            dE_new = 10*np.log10(gain_f * 2**(E[dti]/8)) - 55 # calibrate for short survey
         else:
-            dE_new = 10*np.log10(2**(E[dti]/8)) - 58 # fix for long survey
+            dE_new = 10*np.log10(gain_f * 2**(E[dti]/8)) - 58 # calibrate for long survey
 
         survey_dt_prev = survey_dt
         E_new.append(dE_new)
