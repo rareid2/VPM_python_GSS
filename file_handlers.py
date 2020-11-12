@@ -68,7 +68,11 @@ def write_survey_XML(in_data, filename='survey_data.xml'):
                 cur_item.text = str(v)
         
         if 'exp_num' in entry_data:
-            entry.set('exp_num', f"{(entry_data['exp_num'])}")            
+            entry.set('exp_num', f"{(entry_data['exp_num'])}")  
+
+        if 'cal_info' in entry_data:
+            entry.set('cal_info', f"{(entry_data['cal_info'])}") 
+
     rough_string = ET.tostring(d, 'utf-8')
     reparsed = MD.parseString(rough_string).toprettyxml(indent="\t")
 

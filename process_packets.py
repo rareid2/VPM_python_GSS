@@ -46,7 +46,7 @@ def load_from_telemetry(filepath, files_to_skip = [], do_TLM=True, do_CSV=True):
     return packets
 
 
-def save_packets_to_file_tree(packets, filepath):
+def save_packets_to_file_tree(packets, filepath, out_root):
     ''' Save a list of decoded packets to a sorted filetree.
         if a previous file already exists, load it, remove duplicates, sort, and rewrite.
     '''

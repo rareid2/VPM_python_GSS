@@ -332,7 +332,8 @@ def decode_uBBR_command(cmd):
 
     out['TONESTEP'] = int(cmd_str[1:9],2)  # Pretty sure byte zero is unused...
     for parm, ind in zip(parms,inds):
-        out[parm] = int(cmd_str[ind])    
+        out[parm] = int(cmd_str[ind])  
+        print(out)  
     
     return out
 
@@ -712,7 +713,7 @@ def decode_burst_data_by_experiment_number(packets, burst_cmd = None, burst_puls
 
     completed_bursts = []
 
-    if (burst_cmd is not None) and (len(burst_cmd) > 0 ) and (burst_cmd is not "burst command"):
+    if (burst_cmd != None) and (len(burst_cmd) > 0 ) and (burst_cmd != "burst command"):
         logger.info(f'Using manually-provided burst command {burst_cmd}')
         # Use externally-provided burst command, if present
         burst_config = decode_burst_command(burst_cmd)
@@ -1366,7 +1367,7 @@ def decode_survey_data(packets, separation_time = 4.5):
                     # d['header_epoch_sec'] = cur_packets[s1]['header_epoch_sec']
                     d['header_timestamp'] = cur_packets[s1]['header_timestamp']
                     d['exp_num'] = e_num
-                    d['cal_ADC_2_uV/m'] = 5 # 2^(data/8) divide or multiply by 10^55(58)/10
+                    d['cal_info'] = "5" # 2^(data/8) divide or multiply by 10^55(58)/10
                     S_data.append(d)
 
                 else:

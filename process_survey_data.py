@@ -50,7 +50,7 @@ def valid_GPS_mask(s):
     
     return temp
 
-def save_survey_to_file_tree(S_data, out_root, file_types=['xml']):
+def save_survey_to_file_tree(S_data, out_root, file_types=['xml', 'mat']):
     logger = logging.getLogger('save_survey_to_file_tree')
 
 
