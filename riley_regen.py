@@ -10,11 +10,12 @@ from data_handlers import decode_packets_TLM, decode_packets_CSV, decode_survey_
 from process_survey_data import save_survey_to_file_tree
 from compute_ground_track import fill_missing_GPS_entries
 
+# CLEAR DB BEFORE RE-RUNNING THIS!!!!!
 # following the steps to regenerate the database without messing with stuff
 
 # need a database of EVERYTHING
-data_root = '/Users/rileyannereid/Desktop/drive_download'
-out_root = '/Users/rileyannereid/Desktop/drive_download/out'
+data_root = '/Users/rileyannereid/macworkspace/test_data_VPM'
+out_root = '/Users/rileyannereid/macworkspace/test_data_VPM/out'
 
 # then use process packets
 packets = load_from_telemetry(data_root)
@@ -38,3 +39,8 @@ if S_data:
         fill_missing_GPS_entries([x['GPS'][0] for x in S_data])
 
     save_survey_to_file_tree(S_data, out_root, file_types=['xml', 'mat'])
+
+# next is to process burst data
+# then add TX to survey plots 
+# then generate some to check everything 
+# I don't think I will calibrate the survey data.... 

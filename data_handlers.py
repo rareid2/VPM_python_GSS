@@ -1340,6 +1340,7 @@ def decode_survey_data(packets, separation_time = 4.5):
         splits = np.insert(np.append(splits,[len(cur_packets)]),0,0) 
 
         # Iterate over sub-lists of packets, as divided by splits:
+        dt_prev = 10
         for s1,s2 in zip(splits[0:-1],splits[1:]):
             try:
                 # Start with all nans
@@ -1367,7 +1368,11 @@ def decode_survey_data(packets, separation_time = 4.5):
                     # d['header_epoch_sec'] = cur_packets[s1]['header_epoch_sec']
                     d['header_timestamp'] = cur_packets[s1]['header_timestamp']
                     d['exp_num'] = e_num
-                    d['cal_info'] = "5" # 2^(data/8) divide or multiply by 10^55(58)/10
+                    
+                    # find gain and filter char.
+                    d['gain'] = 'high'
+                    d['filter'] = 'on'
+                    d['survey_type'] = '0' # place holder
                     S_data.append(d)
 
                 else:

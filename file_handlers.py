@@ -49,6 +49,8 @@ def write_survey_XML(in_data, filename='survey_data.xml'):
     # d.set('creation_date', str(datetime.datetime.now(datetime.timezone.utc).timestamp()))
     d.set('file_creation_date', datetime.datetime.now(datetime.timezone.utc).isoformat())
 
+    data_count = 0
+    dt_prev = 10 # set something greater than 8 to start
     for entry_data in in_data:
 
         entry = ET.SubElement(d, 'survey')
@@ -70,8 +72,35 @@ def write_survey_XML(in_data, filename='survey_data.xml'):
         if 'exp_num' in entry_data:
             entry.set('exp_num', f"{(entry_data['exp_num'])}")  
 
-        if 'cal_info' in entry_data:
-            entry.set('cal_info', f"{(entry_data['cal_info'])}") 
+        if 'gain' in entry_data:
+            entry.set('gain', f"{(entry_data['gain'])}") 
+        if 'fiter' in entry_data:
+            entry.set('gain', f"{(entry_data['filter'])}") 
+        if 'survey_type' in entry_data:
+        # data is sorted here, so we can check here for short v long
+            if data_count == len(in_data) - 1:
+                # last packet, assume same as last
+                survey_type = survey_type_last
+            else:
+                next_data = in_data[data_count+1]
+
+                tdate = datetime.datetime.utcfromtimestamp(entry_data['header_timestamp'])
+                tdate_next = datetime.datetime.utcfromtimestamp(next_data['header_timestamp'])
+
+                # find tdelta
+                dt_total = tdate_next - tdate
+                dt = dt_total.total_seconds()
+
+                if dt < 8 or dt_prev < 8: # doing this catches the last short survey packet
+                    survey_type = 'short'
+                else:
+                    survey_type = 'long'
+
+                survey_type_last = survey_type
+                dt_prev = dt
+
+            entry.set('survey_type', f"{survey_type}") 
+            data_count += 1
 
     rough_string = ET.tostring(d, 'utf-8')
     reparsed = MD.parseString(rough_string).toprettyxml(indent="\t")
