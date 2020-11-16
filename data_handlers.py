@@ -1370,9 +1370,10 @@ def decode_survey_data(packets, separation_time = 4.5):
                     d['exp_num'] = e_num
                     
                     # find gain and filter char.
-                    d['gain'] = 'high'
-                    d['filter'] = 'on'
-                    d['survey_type'] = '0' # place holder
+                    # replace with placeholders for now, until we are able to parse this correctly
+                    d['gain'] = '0'
+                    d['filter'] = '0'
+                    d['survey_type'] = '0'
                     S_data.append(d)
 
                 else:

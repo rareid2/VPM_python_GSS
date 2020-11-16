@@ -103,6 +103,32 @@ def save_survey_to_file_tree(S_data, out_root, file_types=['xml', 'mat']):
             logger.info(f'saving {len(S_filt)} survey entries')
             S_filt = sorted(S_filt, key=lambda x: get_timestamp(x))
 
+            # need to do short v long survey checking here so that is is reflected in all ftypes
+            dt_prev = 10 # set something greater than 8 to start
+            for si, Scheck in enumerate(S_filt):
+                if si == len(S_filt) - 1:
+                    # last packet, assume same as last
+                    survey_type = survey_type_last
+                else:
+                    next_data = S_filt[si+1]
+
+                    tdate = datetime.datetime.utcfromtimestamp(Scheck['header_timestamp'])
+                    tdate_next = datetime.datetime.utcfromtimestamp(next_data['header_timestamp'])
+
+                    # find tdelta
+                    dt_total = tdate_next - tdate
+                    dt = dt_total.total_seconds()
+
+                    if dt < 8 or dt_prev < 8: # doing this catches the last short survey packet
+                        survey_type = 'short'
+                    else:
+                        survey_type = 'long'
+                    
+                    # replace survey type with correct output
+                    Scheck['survey_type'] = survey_type
+                    survey_type_last = survey_type
+                    dt_prev = dt
+
             # Can save xml, matlab, or pickle file types:
             for ftype in file_types:
                 outpath = os.path.join(out_root,ftype,f'{d.year}', '{:02d}'.format(d.month))
