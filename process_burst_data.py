@@ -168,6 +168,7 @@ def save_burst_to_file_tree(burst_data, out_root, filetypes):
             continue
         
         for b in burst_data:
+            b = b[0]
             d = datetime.datetime.utcfromtimestamp(b['header_timestamp'])
     #         t = datetime.datetime.utcfromtimestamp(b['header_timestamp'])
             outpath = os.path.join(out_root,ftype,f'{d.year}', '{:02d}'.format(d.month),'{:02d}'.format(d.day))
@@ -217,49 +218,50 @@ def gen_burst_plots(bursts, out_root, do_plots=True, do_maps=False,
     ftype = 'png'
 
     for ind, b in enumerate(bursts):
-        try:
-            d = datetime.datetime.utcfromtimestamp(b['header_timestamp'])
-    #         t = datetime.datetime.utcfromtimestamp(b['header_timestamp'])
-            outpath = os.path.join(out_root,'figures',f'{d.year}', '{:02d}'.format(d.month),'{:02d}'.format(d.day))
+        #try:
+        b = b[0]
+        d = datetime.datetime.utcfromtimestamp(b['header_timestamp'])
+#         t = datetime.datetime.utcfromtimestamp(b['header_timestamp'])
+        outpath = os.path.join(out_root,'figures',f'{d.year}', '{:02d}'.format(d.month),'{:02d}'.format(d.day))
+    
+        if b['config']['TD_FD_SELECT'] == 0:
+            mode = 'FD'
+        else:
+            mode = 'TD'
+        filename = f'VPM_burst_{mode}_' + d.strftime('%Y-%m-%d_%H%M') +'.' + ftype
         
-            if b['config']['TD_FD_SELECT'] == 0:
-                mode = 'FD'
-            else:
-                mode = 'TD'
-            filename = f'VPM_burst_{mode}_' + d.strftime('%Y-%m-%d_%H%M') +'.' + ftype
-            
 
-            outfile = os.path.join(outpath, filename)
+        outfile = os.path.join(outpath, filename)
 
-            if not os.path.exists(outpath):
-                logger.info(f'making directory {outpath}')
-                os.makedirs(outpath)
-            if os.path.isfile(outfile):
-                logger.debug(f'file exists: {outfile}')
-                expand = 1
-                while True:
-                    expand += 1
-                    new_file_name = outfile.split(f'.{ftype}')[0] + '_' + str(expand) + f'.{ftype}'
-                    if os.path.isfile(new_file_name):
-                        continue
-                    else:
-                        outfile = new_file_name
-                        break
-
-            if do_plots:
-                try:
-                    plot_burst_data([b], show_plots=False, filename=outfile, dpi=dpi, cal_file = cal_file)
-                except:
-                    logger.warning('Problem plotting burst data')
-            if do_maps:
-                try:
-                    outfile = outfile.replace('VPM_burst_','VPM_map_')
-                    plot_burst_map([b],show_plots=False, filename=outfile, dpi=dpi,
-                                TLE_file=TLE_file, TX_file=TX_file)
-                except:
-                    logger.warning('Problem plotting burst map')
-        except:
-            logger.warning(f'Problem plotting burst {ind}')
+        if not os.path.exists(outpath):
+            logger.info(f'making directory {outpath}')
+            os.makedirs(outpath)
+        if os.path.isfile(outfile):
+            logger.debug(f'file exists: {outfile}')
+            expand = 1
+            while True:
+                expand += 1
+                new_file_name = outfile.split(f'.{ftype}')[0] + '_' + str(expand) + f'.{ftype}'
+                if os.path.isfile(new_file_name):
+                    continue
+                else:
+                    outfile = new_file_name
+                    break
+        print(outfile)
+        if do_plots:
+            #try:
+            plot_burst_data([b], show_plots=False, filename=outfile, dpi=dpi, cal_file = cal_file)
+            #except:
+            #    logger.warning('Problem plotting burst data')
+        #if do_maps:
+        #    try:
+        #        outfile = outfile.replace('VPM_burst_','VPM_map_')
+        #        plot_burst_map([b],show_plots=False, filename=outfile, dpi=dpi,
+        #                    TLE_file=TLE_file, TX_file=TX_file)
+        #        except:
+        #            logger.warning('Problem plotting burst map')
+        #except:
+        #    logger.warning(f'Problem plotting burst {ind}')
 def main():
 
     # -------- Load configuration file --------

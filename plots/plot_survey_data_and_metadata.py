@@ -73,7 +73,7 @@ def is_day(t, lats, lons):
 
 def plot_survey_data_and_metadata(fig, S_data,
                 plot_map=True, bus_timestamps=False, t1=None, t2=None,
-                line_plots = ['Lshell','altitude','velocity','lat','lon','used_sats','solution_status','solution_type'],
+                line_plots = ['Lshell','altitude','velocity','lat','lon','solution_status','solution_type'],
                 show_plots=False, lshell_file = 'resources/Lshell_dict.pkl', cal_file = None, E_gain=False, B_gain=False):
 
     logger = logging.getLogger()

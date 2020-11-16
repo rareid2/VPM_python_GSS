@@ -42,8 +42,8 @@ def get_timestamp(x):
 
 
 def generate_survey_quicklooks(in_root, out_root, 
-        start_date=None, stop_date=None, plot_length=6, last_run_time=None,
-        line_plots = ['Lshell','altitude','lat','lon','used_sats','solution_status','daylight']):
+        start_date=None, stop_date=None, plot_length=3, last_run_time=None,
+        line_plots = ['Lshell','altitude','lat','lon','solution_status','daylight']):
 
     logger = logging.getLogger('generate_survey_quicklooks')
 

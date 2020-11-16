@@ -111,9 +111,9 @@ def plot_burst_TD(fig, burst, cal_data = None):
     #b_clims = clims + 20*np.log10(B_coef*ADC_max_value/ADC_max_volts)
     
     e_clims = np.array([-40, 10]) # for newly calibrated data
-    E_coef_high = 1e6/(1.1*82*10*32768) # calibrate into uV/m units -- high gain
-    E_coef_low = E_coef_high * 10
-    B_coef = 1
+
+    E_coef = burst['CAL'] # calibrate into uV/m units 
+    B_coef = 1 # just so we don't have to comment a bunch of stuff out
     
     # Generate time axis
     if cfg['TD_FD_SELECT'] == 1:
@@ -161,6 +161,12 @@ def plot_burst_TD(fig, burst, cal_data = None):
         # GPS timestamps are taken at the end of each contiguous recording.
         # (I think "samples on" is still undecimated, regardless if decimation is being used...)
         start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][0]['timestamp']) - datetime.timedelta(seconds=float(cfg['SAMPLES_ON']/fs))
+
+        gps_error_skip = 0
+        while start_timestamp.year == 1980:
+            gps_error_skip +=1
+            # error in GPS? 
+            start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][gps_error_skip]['timestamp']) - datetime.timedelta(seconds=float(cfg['SAMPLES_ON']/fs))
 
         # the "samples on" and "samples off" values are counting at the full rate, not the decimated rate.
         sec_on  = cfg['SAMPLES_ON']/fs
@@ -211,16 +217,16 @@ def plot_burst_TD(fig, burst, cal_data = None):
         ce = fig.colorbar(pe, cax=ce_ax)
 
         # save output
-        print('FE', np.shape(FE))
-        print('tt', np.shape(tt))
-        print('ff', np.shape(ff))
+        #print('FE', np.shape(FE))
+        #print('tt', np.shape(tt))
+        #print('ff', np.shape(ff))
 
-        np.savetxt('burstE.txt', FE, delimiter=",")
-        np.savetxt('burstT.txt', tt, delimiter=",")
-        np.savetxt('burstF.txt', ff, delimiter=",")
+        #np.savetxt('burstE.txt', FE, delimiter=",")
+        #np.savetxt('burstT.txt', tt, delimiter=",")
+        #np.savetxt('burstF.txt', ff, delimiter=",")
 
         Eoutput = np.genfromtxt('burstE.txt', delimiter=',')
-        print('E', np.shape(Eoutput))
+        #print('E', np.shape(Eoutput))
 
         # B spectrogram
         ff,tt, FB = scipy.signal.spectrogram(B_td_spaced, fs=fs_equiv, window=window,
@@ -243,10 +249,11 @@ def plot_burst_TD(fig, burst, cal_data = None):
 
         if bbr_config:
             fig.suptitle('VPM Burst Data\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s'
-                %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, bbr_config['E_GAIN'], bbr_config['E_FILT']))
+                %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, burst['GAIN'], burst['FILT']))
         else:
             fig.suptitle('VPM Burst Data\n%s - n = %d, %d on / %d off'
                 %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off))
+        #fig.savefig(filename, bbox_inches='tight')
 
     # # Save it!
     # if ind == 0:
@@ -254,8 +261,6 @@ def plot_burst_TD(fig, burst, cal_data = None):
     # else:
     #     components = os.path.splitext(filename)
     #     fname = components[0] + f"_{ind}" + components[1]
-
-    # fig.savefig(fname, bbox_inches='tight')
 
 
 def plot_burst_FD(fig, burst, cal_data = None):

@@ -19,7 +19,16 @@ def plot_burst_map(sub_axis, gps_data,
 
     lats = [x['lat'] for x in gps_data]
     lons = [x['lon'] for x in gps_data]
-    T_gps = np.array([x['timestamp'] for x in gps_data])
+    T_gps = [x['timestamp'] for x in gps_data]
+
+    # still trying to fix this
+    for ti, tt in enumerate(T_gps):
+        if datetime.datetime.utcfromtimestamp(tt).year == 1980:
+            T_gps.pop(ti)
+            lats.pop(ti)
+            lons.pop(ti)
+
+    T_gps = np.array(T_gps)
 
     sx,sy = m(lons, lats)
 
@@ -68,6 +77,7 @@ def plot_burst_map(sub_axis, gps_data,
             
             tvec = [(t1 + datetime.timedelta(seconds=int(x))) for x in np.arange(0,30*60, 10)]
             simtime = [x.replace(tzinfo=datetime.timezone.utc).timestamp() for x in tvec]
+
             traj,_ = get_position_from_TLE_library(simtime, TLE_lib)
 
             tlats = traj[:,1]
@@ -112,7 +122,8 @@ def plot_burst_map(sub_axis, gps_data,
         time = datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(entry['timestamp']),'%D %H:%M:%S')
         tloc = entry['time_status'] > 20
         ploc = entry['solution_status'] ==0
-        gstr+= '{:s} ({:1.2f}, {:1.2f}):\ntime lock: {:b} position lock: {:b}\n'.format(time, entry['lat'], entry['lon'], tloc,ploc)
+        if time[6:8] == '20': # don't include the 1980 ones
+            gstr+= '{:s} ({:1.2f}, {:1.2f}):\ntime lock: {:b} position lock: {:b}\n'.format(time, entry['lat'], entry['lon'], tloc,ploc)
 
     # m_ax.text(1, 0, gstr, fontsize='10') # ha='center', va='bottom')
     return gstr

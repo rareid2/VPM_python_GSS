@@ -333,7 +333,6 @@ def decode_uBBR_command(cmd):
     out['TONESTEP'] = int(cmd_str[1:9],2)  # Pretty sure byte zero is unused...
     for parm, ind in zip(parms,inds):
         out[parm] = int(cmd_str[ind])  
-        print(out)  
     
     return out
 
@@ -1370,9 +1369,11 @@ def decode_survey_data(packets, separation_time = 4.5):
                     d['exp_num'] = e_num
                     
                     # find gain and filter char.
-                    d['gain'] = '0'
-                    d['filter'] = '0'
-                    # replace with placeholders for now, until we are able to parse when ordered
+                    ct = datetime.datetime.utcfromtimestamp(d['header_timestamp'])
+                    #if ct.month >= 5 and 
+                    d['gain'] = 'high'
+                    d['filter'] = 'on'
+                    # replace with placeholder for now, until we are able to parse when ordered
                     d['survey_type'] = '0'
                     S_data.append(d)
 

@@ -71,8 +71,8 @@ def write_survey_XML(in_data, filename='survey_data.xml'):
             entry.set('exp_num', f"{(entry_data['exp_num'])}")  
         if 'gain' in entry_data:
             entry.set('gain', f"{(entry_data['gain'])}") 
-        if 'fiter' in entry_data:
-            entry.set('gain', f"{(entry_data['filter'])}") 
+        if 'filter' in entry_data:
+            entry.set('filter', f"{(entry_data['filter'])}") 
         if 'survey_type' in entry_data:
             entry.set('survey_type', f"{(entry_data['survey_type'])}") 
 
@@ -142,7 +142,18 @@ def write_burst_XML(in_data, filename='burst_data.xml'):
 
         if 'experiment_number' in entry_data:
             entry.set('experiment_number', f"{entry_data['experiment_number']}")
+
+        # new entries for gain, cal, and filter
+        if 'GAIN' in entry_data:
+            entry.set('GAIN', f"{entry_data['GAIN']}")
+
+        if 'CAL' in entry_data:
+            entry.set('CAL', f"{entry_data['CAL']}")
+
+        if 'FILT' in entry_data:
+            entry.set('FILT', f"{entry_data['FILT']}")
             
+        # removed these entries from uBBR config, left the other stuff
         if 'config' in entry_data:
             # Configuration entries
             cfg = ET.SubElement(entry, 'burst_config')
@@ -152,6 +163,7 @@ def write_burst_XML(in_data, filename='burst_data.xml'):
 
         if 'bbr_config' in entry_data:
             # uBBR configuration entries
+            # delete some of these
             bbr = ET.SubElement(entry,'bbr_config')
             for k, v in entry_data['bbr_config'].items():
                 cur_item = ET.SubElement(bbr,k)
@@ -250,7 +262,14 @@ def read_burst_XML(filename):
             d['footer_timestamp'] = datetime.datetime.fromisoformat(footer_timestamp_isoformat).replace(tzinfo=datetime.timezone.utc).timestamp()    
 
         if 'experiment_number' in S.attrib:
-            d['experiment_number'] = int(S.attrib['experiment_number'])     
+            d['experiment_number'] = int(S.attrib['experiment_number'])
+
+        if 'GAIN' in S.attrib:
+            d['GAIN'] = str(S.attrib['GAIN'])     
+        if 'CAL' in S.attrib:
+            d['CAL'] = float(S.attrib['CAL']) 
+        if 'FILT' in S.attrib:
+            d['FILT'] = str(S.attrib['FILT'])      
 
         # Load burst configuration
         d['config'] = dict()

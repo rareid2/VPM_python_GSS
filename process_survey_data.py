@@ -53,8 +53,6 @@ def valid_GPS_mask(s):
 def save_survey_to_file_tree(S_data, out_root, file_types=['xml', 'mat']):
     logger = logging.getLogger('save_survey_to_file_tree')
 
-
-
     # -------------------- Filter out invalid entries -----------------------------
     S_valid   = list(filter(lambda x: valid_GPS_mask(x), S_data))
     S_invalid = list(filter(lambda x: not valid_GPS_mask(x), S_data))
