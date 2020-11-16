@@ -111,6 +111,13 @@ def read_survey_XML(filename):
 
         if 'exp_num' in S.attrib:
             d['exp_num'] = int(S.attrib['exp_num'])
+        if 'gain' in S.attrib:
+            d['gain'] = str(S.attrib['gain'])
+        if 'filter' in S.attrib:
+            d['filter'] = str(S.attrib['filter'])
+        if 'survey_type' in S.attrib:
+            d['survey_type'] = str(S.attrib['survey_type'])
+
     # Return a list of dicts
     return outs
 

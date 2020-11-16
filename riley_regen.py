@@ -9,6 +9,7 @@ from file_handlers import load_packets_from_tree
 from data_handlers import decode_packets_TLM, decode_packets_CSV, decode_survey_data, unique_entries
 from process_survey_data import save_survey_to_file_tree
 from compute_ground_track import fill_missing_GPS_entries
+from generate_survey_quicklooks import generate_survey_quicklooks
 
 # CLEAR DB BEFORE RE-RUNNING THIS!!!!!
 # following the steps to regenerate the database without messing with stuff
@@ -44,3 +45,6 @@ if S_data:
 # then add TX to survey plots 
 # then generate some to check everything 
 # I don't think I will calibrate the survey data.... 
+
+# should hopefully be it for quicklooks
+#generate_survey_quicklooks(data_root, out_root)

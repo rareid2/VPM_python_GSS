@@ -114,6 +114,7 @@ def plot_survey_data_and_metadata(fig, S_data,
     E = []
     B = []
     T = []
+    cal = []
     F = np.arange(512)*40/512;
     
     # # Only plot survey data if we have GPS data to match
@@ -131,8 +132,25 @@ def plot_survey_data_and_metadata(fig, S_data,
         # Ugh, why didn't we just save a local microsecond counter... do that on CANVAS please)
         for S in S_with_GPS:
             T.append(S['GPS'][0]['timestamp'])
-            E.append(S['E_data'])
+            
             B.append(S['B_data'])
+
+            # cal info
+            gain = S['gain']
+            survey_type = S['survey_type']
+
+            if gain == 'high':
+                gain_f = 1
+            else: # low gain
+                gain_f = 10
+            if survey_type == 'short':
+                shift = 55
+            else: # long survey
+                shift = 58
+            
+            # append the calibrated the data
+            E.append( 10 * np.log10( gain_f * 2**(S['E_data'] / 8) ) - shift )
+            
     T = np.array(T)
 
     dates = np.array([datetime.datetime.utcfromtimestamp(t) for t in T])
@@ -145,26 +163,6 @@ def plot_survey_data_and_metadata(fig, S_data,
     # Spectrograms
     # -----------------------------------
     E = np.array(E); B = np.array(B); T = np.array(T);
-    
-    gain_f = 1 # or 10 (low) ---- switch to high gain march 18
-
-    E_new = [] # empty list for calibrated data
-    # calibrate and shift for long v short survey
-    survey_dt_prev = 10 # starting val greater than 8
-    for dti, dt in enumerate(T):
-        if dti == len(T) - 1:
-            continue
-        survey_dt = int(T[dti+1] - dt)
-        if survey_dt < 8 or survey_dt_prev < 8: # catches last time point
-            dE_new = 10*np.log10(gain_f * 2**(E[dti]/8)) - 55 # calibrate for short survey
-        else:
-            dE_new = 10*np.log10(gain_f * 2**(E[dti]/8)) - 58 # calibrate for long survey
-
-        survey_dt_prev = survey_dt
-        E_new.append(dE_new)
-
-    E = np.array(E_new) # replace E array
-
     logger.debug(f'E has shape {np.shape(E)}, B has shape {np.shape(B)}')
 
     # gs_data = GS.GridSpec(2, 2, width_ratios=[20, 1], wspace = 0.05, hspace = 0.05, subplot_spec=gs_root[1])
@@ -350,12 +348,12 @@ def plot_survey_data_and_metadata(fig, S_data,
         ax_lines[-1].set_xlim([t1,t2])
 
     # save and send the data
-    np.savetxt('surveyE.txt', E, delimiter=",")
-    np.savetxt('surveyF.txt', F, delimiter=",")
-    np.savetxt('surveyT.txt', T, delimiter=",")
+    #np.savetxt('surveyE.txt', E, delimiter=",")
+    #np.savetxt('surveyF.txt', F, delimiter=",")
+    #np.savetxt('surveyT.txt', T, delimiter=",")
     
     fig.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.12)
     # fig.suptitle(f"VPM Survey Data\n {dts[0].strftime('%D%, %H:%m:%S')} -- {dts[-1].strftime('%D%, %H:%m:%S')}")
     fig.suptitle(f"VPM Survey Data\n {t1.strftime('%D, %H:%M:%S')} -- {t2.strftime('%D, %H:%M:%S')}")
-    fig.savefig('survey.png')
+    #fig.savefig('survey.png')
     return fig
