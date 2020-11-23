@@ -1370,9 +1370,27 @@ def decode_survey_data(packets, separation_time = 4.5):
                     
                     # find gain and filter char.
                     ct = datetime.datetime.utcfromtimestamp(d['header_timestamp'])
-                    #if ct.month >= 5 and 
-                    d['gain'] = 'high'
-                    d['filter'] = 'on'
+                    if ct.month > 5: # after 5-11 gain is high and filter on
+                        d['gain'] = 'high'
+                        d['filter'] = 'on'
+                    elif ct.month == 5: # during may
+                        if ct.day == 11: # if on 11, find out before or after switch
+                            if ct.hour >= 23 and ct.minute >= 56 and ct.second >= 8:
+                                d['gain'] = 'high'
+                                d['filter'] = 'on'
+                            else: # on the 11, but before the switch
+                                d['gain'] = 'low'
+                                d['filter'] = 'on'
+                        elif ct.day < 11:
+                            d['gain'] = 'low'
+                            d['filter'] = 'on'
+                        else: # after the 11
+                            d['gain'] = 'high'
+                            d['filter'] = 'on'
+                    else: # before may switch off
+                        d['gain'] = 'low'
+                        d['filter'] = 'on'                       
+                    
                     # replace with placeholder for now, until we are able to parse when ordered
                     d['survey_type'] = '0'
                     S_data.append(d)
