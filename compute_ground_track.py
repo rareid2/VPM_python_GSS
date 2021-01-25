@@ -121,7 +121,7 @@ def get_position_from_TLE_library(timestamps, TLE_lib=None):
 
 
 
-def fill_missing_GPS_entries(G_data, TLE_lib=None):
+def fill_missing_GPS_entries(G_data, h_tsamp, TLE_lib=None):
     ''' 
         Replace the lat, lon, and alt fields in a list of GPS 
         elements with synthesized values, using an appropriate TLE
@@ -174,4 +174,28 @@ def fill_missing_GPS_entries(G_data, TLE_lib=None):
             G['lon'] = coords[0]
             G['lat'] = coords[1]
             G['alt'] = coords[2]
+
+        # for the 1980 issue
+        if float(G['timestamp']) < 1577900000:
+            t = h_tsamp + 10
+            curtime = datetime.datetime.utcfromtimestamp(t)
+             # Grab the closest TLE (without looking into the future)
+            ind = bisect.bisect_left(db_tvec, curtime)
+            TLE = [TLE_lib[ind]['TLE_LINE1'],TLE_lib[ind]['TLE_LINE2']]
+
+            # Update the satellite, if needed:
+            sat.update_TLEs(TLE[0],TLE[1],'VPM')
+
+            # Get the position
+            sat.compute(curtime)    
+            coords = [sat.coords_3d_at(curtime)][0]
+
+            # Write the new coordinates back to the GPS object
+            # Python does everything by reference, so the S_data
+            # elements are all in-place -- no returning necessary
+            G['lon'] = coords[0]
+            G['lat'] = coords[1]
+            G['alt'] = coords[2]
+
+            G['timestamp'] = h_tsamp
 

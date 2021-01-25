@@ -7,7 +7,7 @@ import datetime
 import matplotlib.pyplot as plt
 from file_handlers import read_survey_XML
 
-S_data = read_survey_XML('/home/rileyannereid/Downloads/VPM_survey_data_2020-05-11.xml')
+S_data = read_survey_XML('/Users/rileyannereid/macworkspace/special/VPM_survey_data_2020-05-11.xml')
 
 S_data = sorted(S_data, key = lambda f: f['header_timestamp'])
 
@@ -75,9 +75,10 @@ else:
     E = np.array(E); B = np.array(B); T = np.array(T);
 
     plt.plot(F, E[1890], label=' (low gain)')
+    plt.plot(F, E[1891], label=' (? gain)')
     plt.plot(F, E[1892], label='after switch (low gain)')
-    print(dates[1892])
-    plt.plot(F, E_other[1892], label='after switch (high gain)')
+    print(dates[1892], dates[1891])
+    #plt.plot(F, E_other[1892], label='after switch (high gain)')
 
     #plt.plot(F, E_other[1890], label='assuming low')
 

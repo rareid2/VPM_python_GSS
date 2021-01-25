@@ -6,7 +6,9 @@ from compute_ground_track import load_TLE_library, get_position_from_TLE_library
 from matplotlib.cm import get_cmap
 from configparser import ConfigParser
 
-def plot_burst_map(sub_axis, gps_data, 
+# added burst so that I can grab the header timestamp and fix the gps problem
+
+def plot_burst_map(sub_axis, gps_data, burst, 
         show_terminator = True, plot_trajectory=True, show_transmitters=True,
         TLE_file = 'resources/VPM_TLEs.json', TX_file='resources/nb_transmitters.conf'):
 
@@ -22,11 +24,11 @@ def plot_burst_map(sub_axis, gps_data,
     T_gps = [x['timestamp'] for x in gps_data]
 
     # still trying to fix this
-    for ti, tt in enumerate(T_gps):
-        if datetime.datetime.utcfromtimestamp(tt).year == 1980:
-            T_gps.pop(ti)
-            lats.pop(ti)
-            lons.pop(ti)
+    #for ti, tt in enumerate(T_gps):
+    #    if datetime.datetime.utcfromtimestamp(tt).year == 1980:
+    #        T_gps.pop(ti)
+    #        lats.pop(ti)
+    #        lons.pop(ti)
 
     T_gps = np.array(T_gps)
 
@@ -38,10 +40,23 @@ def plot_burst_map(sub_axis, gps_data,
     m.drawmapboundary(fill_color='cyan');
     m.fillcontinents(color='white',lake_color='cyan');
 
+    #print(gps_data)
+
+    #check_lat = [x['lat'] for x in gps_data]
+    #check_lon = [x['lon'] for x in gps_data]
+
+    #if check_lat[0] == 0 and check_lon[0] == 0:
+    #    TLE_lib = load_TLE_library(TLE_file)
+
+    # quick fix for missing gps
+    start_timestamp = datetime.datetime.utcfromtimestamp(burst['header_timestamp'])
+    avg_ts = float(burst['header_timestamp']) + 10
+    print(start_timestamp)
+
     if show_terminator:
         try:
             # Find the median timestamp to use:
-            avg_ts = np.mean([k['timestamp'] for k in gps_data if k['time_status'] > 20])
+            #avg_ts = np.mean([k['timestamp'] for k in gps_data if k['time_status'] > 19])
 
             CS=m.nightshade(datetime.datetime.utcfromtimestamp(avg_ts))
         except:
@@ -68,13 +83,14 @@ def plot_burst_map(sub_axis, gps_data,
             # You can change the length of the ground track plot by changing t1, t2, and tvec
             TLE_lib = load_TLE_library(TLE_file)
 
-            avg_ts = np.mean([k['timestamp'] for k in gps_data if k['time_status'] > 20])
+            #avg_ts = np.mean([k['timestamp'] for k in gps_data if k['time_status'] > 19])
+            
             t_mid = datetime.datetime.utcfromtimestamp(avg_ts)
+
             t1 = t_mid - datetime.timedelta(minutes=15)
             t2 = t_mid + datetime.timedelta(minutes=15)
 
-            # traj, tvec = compute_ground_track(TLE, t1, t2, tstep=datetime.timedelta(seconds=10))
-            
+            #traj, tvec = compute_ground_track(TLE, t1, t2, tstep=datetime.timedelta(seconds=10))
             tvec = [(t1 + datetime.timedelta(seconds=int(x))) for x in np.arange(0,30*60, 10)]
             simtime = [x.replace(tzinfo=datetime.timezone.utc).timestamp() for x in tvec]
 
@@ -124,6 +140,7 @@ def plot_burst_map(sub_axis, gps_data,
         ploc = entry['solution_status'] ==0
         if time[6:8] == '20': # don't include the 1980 ones
             gstr+= '{:s} ({:1.2f}, {:1.2f}):\ntime lock: {:b} position lock: {:b}\n'.format(time, entry['lat'], entry['lon'], tloc,ploc)
-
-    # m_ax.text(1, 0, gstr, fontsize='10') # ha='center', va='bottom')
+    time = datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(burst['header_timestamp']),'%D %H:%M:%S')
+    gstr = '{:s}'.format(time) + ' (' + str(round(tlats[len(tlats)//2],2)) + ', ' + str(round(tlons[len(tlons)//2],2)) + ') \n TLE generated'
+    #m_ax.text(1, 0, gstr, fontsize='10') # ha='center', va='bottom')    
     return gstr

@@ -113,6 +113,7 @@ def plot_burst_TD(fig, burst, cal_data = None):
     e_clims = np.array([-40, 10]) # for newly calibrated data
 
     E_coef = burst['CAL'] # calibrate into uV/m units 
+    #print(E_coef)
     B_coef = 1 # just so we don't have to comment a bunch of stuff out
     
     # Generate time axis
@@ -134,9 +135,9 @@ def plot_burst_TD(fig, burst, cal_data = None):
         box.x0 = box.x0 - 0.13
         box.x1 = box.x1 - 0.13
         map_ax.set_position(box)
-        gstr = plot_burst_map(map_ax, burst['G'])
-        fig.text(0.68, 0.13, gstr, fontsize='9') # ha='center', va='bottom')
-
+        gstr = plot_burst_map(map_ax, burst['G'], burst)
+    
+        fig.text(0.68, 0.28, gstr, fontsize='9') # ha='center', va='bottom')
 
         # Construct the appropriate time and frequency axes
         # Get the equivalent sample rate, if decimated
@@ -153,6 +154,7 @@ def plot_burst_TD(fig, burst, cal_data = None):
             # Seconds from the start of the burst
             t_axis = np.array([(np.arange(cfg['SAMPLES_ON']))/fs_equiv +\
                           (k*(cfg['SAMPLES_ON'] + cfg['SAMPLES_OFF']))/fs_equiv for k in range(cfg['burst_pulses'])]).ravel()
+        #print(len(burst['E']))
 
         # Add in system delay 
         t_axis += system_delay_samps_TD/fs_equiv 
@@ -160,20 +162,23 @@ def plot_burst_TD(fig, burst, cal_data = None):
         # Get the timestamp at the beginning of the burst.
         # GPS timestamps are taken at the end of each contiguous recording.
         # (I think "samples on" is still undecimated, regardless if decimation is being used...)
-        start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][0]['timestamp']) - datetime.timedelta(seconds=float(cfg['SAMPLES_ON']/fs))
+        try:
+            start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][0]['timestamp']) - datetime.timedelta(seconds=float(cfg['SAMPLES_ON']/fs))
+            #print(start_timestamp)
+        except:
+            start_timestamp = datetime.datetime.utcfromtimestamp(burst['header_timestamp'])
 
-        gps_error_skip = 0
-        while start_timestamp.year == 1980:
-            gps_error_skip +=1
-            # error in GPS? 
-            start_timestamp = datetime.datetime.utcfromtimestamp(burst['G'][gps_error_skip]['timestamp']) - datetime.timedelta(seconds=float(cfg['SAMPLES_ON']/fs))
+        #if start_timestamp.year == 1980:
+        #    # error in GPS? 
+        #    start_timestamp = datetime.datetime.utcfromtimestamp(burst['header_timestamp'])
 
         # the "samples on" and "samples off" values are counting at the full rate, not the decimated rate.
         sec_on  = cfg['SAMPLES_ON']/fs
         sec_off = cfg['SAMPLES_OFF']/fs
         
 
-        E_TD.plot(t_axis[0:len(burst['E'])], E_coef*burst['E'])
+        #E_TD.plot(t_axis[0:len(burst['E'])], E_coef*burst['E'])
+        E_TD.plot(t_axis[0:len(burst['E'])], E_coef*burst['E'][0:len(t_axis)])
         # B_TD.plot(t_axis[0:len(burst['B'])], B_coef*burst['B'])
 
 
@@ -243,10 +248,14 @@ def plot_burst_TD(fig, burst, cal_data = None):
         # B_FD.set_ylabel('Frequency [kHz]')
         E_TD.set_xlabel('Time [sec from start]')
         E_FD.set_xlabel('Time [sec from start]')
+        E_TD.set_xlim([0,26])
 
         ce.set_label(f'dB[(uV/m)^2/Hz]')
         # cb.set_label(f'dB[{B_unit_string}]')
 
+        #f start_timestamp.year == 1980:
+        #        start_timestamp = datetime.datetime.utcfromtimestamp(burst['header_timestamp'])
+        start_timestamp = start_timestamp.replace(microsecond=0)
         if bbr_config:
             fig.suptitle('VPM Burst Data\n%s - n = %d, %d on / %d off\nE gain = %s, E filter = %s'
                 %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off, burst['GAIN'], burst['FILT']))

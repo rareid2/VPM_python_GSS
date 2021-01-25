@@ -114,7 +114,6 @@ def plot_survey_data_and_metadata(fig, S_data,
     E = []
     B = []
     T = []
-    cal = []
     F = np.arange(512)*40/512;
     
     # # Only plot survey data if we have GPS data to match
@@ -146,10 +145,11 @@ def plot_survey_data_and_metadata(fig, S_data,
             if survey_type == 'short':
                 shift = 55
             else: # long survey
-                shift = 58
+                shift = 64
+            #print(shift)
             
             # append the calibrated the data
-            E.append( 10 * np.log10( gain_f * 2**(S['E_data'] / 8) ) - shift )
+            E.append( (10 * np.log10( gain_f * 2**(S['E_data'] / 8) )) - shift )
             
     T = np.array(T)
 
@@ -354,6 +354,6 @@ def plot_survey_data_and_metadata(fig, S_data,
     
     fig.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.12)
     # fig.suptitle(f"VPM Survey Data\n {dts[0].strftime('%D%, %H:%m:%S')} -- {dts[-1].strftime('%D%, %H:%m:%S')}")
-    fig.suptitle(f"VPM Survey Data\n {t1.strftime('%D, %H:%M:%S')} -- {t2.strftime('%D, %H:%M:%S')}")
+    #fig.suptitle(f"VPM Survey Data\n {t1.strftime('%D, %H:%M:%S')} -- {t2.strftime('%D, %H:%M:%S')} \n gain = ")
     #fig.savefig('survey.png')
     return fig

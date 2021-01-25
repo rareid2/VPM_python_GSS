@@ -11,7 +11,7 @@ from file_handlers import read_burst_XML, write_burst_XML
 from data_handlers import decode_status, decode_uBBR_command, decode_burst_command, process_burst
 from db_handlers import get_packets_within_range
 from log_handlers import get_last_access_time, log_access_time
-from cli_plots import plot_burst_data, plot_burst_map
+from cli_plots import plot_burst_data, plot_burst_map, plot_burst_inc
 from compute_ground_track import fill_missing_GPS_entries
 
 
@@ -250,7 +250,10 @@ def gen_burst_plots(bursts, out_root, do_plots=True, do_maps=False,
         print(outfile)
         if do_plots:
             #try:
+            #print(b)
             plot_burst_data([b], show_plots=False, filename=outfile, dpi=dpi, cal_file = cal_file)
+            #plot_burst_inc([b], show_plots=False, filename=outfile, dpi=dpi, cal_file = cal_file)
+            
             #except:
             #    logger.warning('Problem plotting burst data')
         #if do_maps:

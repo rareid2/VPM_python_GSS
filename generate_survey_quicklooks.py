@@ -61,7 +61,7 @@ def generate_survey_quicklooks(in_root, out_root,
     for root, dirs, files in os.walk(in_root):
         for fname in files:
             if fname.startswith('VPM_survey_data_') and fname.endswith('.xml'):
-
+                
                 filetime = datetime.datetime.utcfromtimestamp(os.path.getmtime(os.path.join(root, fname)))
                 if filetime < last_run_time:
                     logger.info(f'skipping {fname} (no changes since {last_run_time})')
@@ -72,6 +72,7 @@ def generate_survey_quicklooks(in_root, out_root,
                         filename = os.path.join(root, fname)
                         print(f'Loading {filename}')
                         S_data = read_survey_XML(filename)
+                        formatS = S_data[0]
 
                         for h1,h2 in zip(hour_segs[:-1], hour_segs[1:]):
                                 d1 = day + datetime.timedelta(hours=int(h1))
@@ -88,7 +89,7 @@ def generate_survey_quicklooks(in_root, out_root,
                                                   show_plots=False, lshell_file='resources/Lshell_dict.pkl')
                                     
                                     fig.suptitle(f"VPM Survey Data: {day.strftime('%D')}\n" +\
-                                            f"{d1.strftime('%H:%M:%S')} -- {d2.strftime('%H:%M:%S')} UT")
+                                            f"{d1.strftime('%H:%M:%S')} -- {d2.strftime('%H:%M:%S')} UT \n gain = " + formatS['gain'] + ", filter = " + formatS['filter'])
                                     
                                     if not os.path.exists(outdir):
                                         os.makedirs(outdir)
