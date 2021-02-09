@@ -251,7 +251,7 @@ def gen_burst_plots(bursts, out_root, do_plots=True, do_maps=False,
         if do_plots:
             #try:
             #print(b)
-            plot_burst_data([b], show_plots=False, filename=outfile, dpi=dpi, cal_file = cal_file)
+            plot_burst_data([b], show_plots=True, filename=outfile, dpi=dpi, cal_file = cal_file)
             #plot_burst_inc([b], show_plots=False, filename=outfile, dpi=dpi, cal_file = cal_file)
             
             #except:

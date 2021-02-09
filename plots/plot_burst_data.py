@@ -248,7 +248,7 @@ def plot_burst_TD(fig, burst, cal_data = None):
         # B_FD.set_ylabel('Frequency [kHz]')
         E_TD.set_xlabel('Time [sec from start]')
         E_FD.set_xlabel('Time [sec from start]')
-        E_TD.set_xlim([0,26])
+        E_TD.set_xlim([0,20])
 
         ce.set_label(f'dB[(uV/m)^2/Hz]')
         # cb.set_label(f'dB[{B_unit_string}]')
