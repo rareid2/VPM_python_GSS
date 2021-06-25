@@ -56,7 +56,7 @@ def generate_survey_quicklooks(in_root, out_root,
         stop_date = datetime.datetime.now()
 
     # edges for plot times
-    hour_segs = np.arange(0,25,plot_length)
+    hour_segs = np.arange(21,23,1)
 
     for root, dirs, files in os.walk(in_root):
         for fname in files:
@@ -74,32 +74,32 @@ def generate_survey_quicklooks(in_root, out_root,
                         S_data = read_survey_XML(filename)
                         formatS = S_data[0]
 
-                        for h1,h2 in zip(hour_segs[:-1], hour_segs[1:]):
-                                d1 = day + datetime.timedelta(hours=int(h1))
-                                d2 = day + datetime.timedelta(hours=int(h2))
-                                t1 = d1.replace(tzinfo = datetime.timezone.utc).timestamp()
-                                t2 = d2.replace(tzinfo = datetime.timezone.utc).timestamp()
-                                S_filt = list(filter(lambda x: (get_timestamp(x) >= t1) and (get_timestamp(x) < t2), S_data))
-                                
-                                outdir = os.path.join(out_root,f'{day.year}','{:02d}'.format(day.month))
+                        #for h1,h2 in zip(hour_segs[:-1], hour_segs[1:]):
+                        d1 = day + datetime.timedelta(hours=21,minutes=15)
+                        d2 = day + datetime.timedelta(hours=21,minutes=30)
+                        t1 = d1.replace(tzinfo = datetime.timezone.utc).timestamp()
+                        t2 = d2.replace(tzinfo = datetime.timezone.utc).timestamp()
+                        S_filt = list(filter(lambda x: (get_timestamp(x) >= t1) and (get_timestamp(x) < t2), S_data))
+                        
+                        outdir = os.path.join(out_root,f'{day.year}','{:02d}'.format(day.month))
 
-                                if S_filt:            
-                                    fig = plot_survey_data_and_metadata(S_filt,t1=d1, t2=d2,
-                                                  line_plots = line_plots,
-                                                  show_plots=False, lshell_file='resources/Lshell_dict.pkl')
-                                    
-                                    fig.suptitle(f"VPM Survey Data: {day.strftime('%D')}\n" +\
-                                            f"{d1.strftime('%H:%M:%S')} -- {d2.strftime('%H:%M:%S')} UT \n gain = " + formatS['gain'] + ", filter = " + formatS['filter'])
-                                    
-                                    if not os.path.exists(outdir):
-                                        os.makedirs(outdir)
-                                    
-                                    outfile = os.path.join(outdir,
-                                                f"VPM_survey_data_{d1.strftime('%Y-%m-%d_%H%M--')}{d2.strftime('%H%M')}.png")
+                        if S_filt:            
+                            fig = plot_survey_data_and_metadata(S_filt,t1=d1, t2=d2,
+                                            line_plots = [1],
+                                            show_plots=True, lshell_file='resources/Lshell_dict.pkl')
+                            
+                            fig.suptitle(f"VPM Survey Data: {day.strftime('%D')}\n" +\
+                                    f"{d1.strftime('%H:%M:%S')} -- {d2.strftime('%H:%M:%S')} UT \n gain = " + formatS['gain'] + ", filter = " + formatS['filter'])
+                            
+                            if not os.path.exists(outdir):
+                                os.makedirs(outdir)
+                            
+                            outfile = os.path.join(outdir,
+                                        f"VPM_survey_data_{d1.strftime('%Y-%m-%d_%H%M--')}{d2.strftime('%H%M')}.png")
 
-                                    fig.savefig(outfile, dpi=120)
+                            fig.savefig(outfile, dpi=120)
 
-                                    plt.close(fig)
+                            plt.close(fig)
 
 
 

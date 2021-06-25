@@ -10,7 +10,7 @@ import pickle
 
 from plots.plot_survey_data_and_metadata import plot_survey_data_and_metadata as plot_survey_core
 from plots.plot_burst_data import plot_burst_TD, plot_burst_FD
-from plots.plot_incomplete_burst import plot_burst_incomplete
+#from plots.plot_incomplete_burst import plot_burst_incomplete
 from plots.plot_burst_map import plot_burst_map as plot_map
 
 def plot_survey_data_and_metadata(S_data, **kwargs):

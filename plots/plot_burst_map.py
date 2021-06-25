@@ -40,7 +40,6 @@ def plot_burst_map(sub_axis, gps_data, burst,
     m.drawmapboundary(fill_color='cyan');
     m.fillcontinents(color='white',lake_color='cyan');
 
-    #print(gps_data)
 
     #check_lat = [x['lat'] for x in gps_data]
     #check_lon = [x['lon'] for x in gps_data]
@@ -51,7 +50,6 @@ def plot_burst_map(sub_axis, gps_data, burst,
     # quick fix for missing gps
     start_timestamp = datetime.datetime.utcfromtimestamp(burst['header_timestamp'])
     avg_ts = float(burst['header_timestamp']) + 10
-    print(start_timestamp)
 
     if show_terminator:
         try:
@@ -135,6 +133,7 @@ def plot_burst_map(sub_axis, gps_data, burst,
 
     gstr = ''
     for entry in gps_data:
+        print('hey',entry)
         time = datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(entry['timestamp']),'%D %H:%M:%S')
         tloc = entry['time_status'] > 20
         ploc = entry['solution_status'] ==0
@@ -142,5 +141,7 @@ def plot_burst_map(sub_axis, gps_data, burst,
             gstr+= '{:s} ({:1.2f}, {:1.2f}):\ntime lock: {:b} position lock: {:b}\n'.format(time, entry['lat'], entry['lon'], tloc,ploc)
     time = datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(burst['header_timestamp']),'%D %H:%M:%S')
     gstr = '{:s}'.format(time) + ' (' + str(round(tlats[len(tlats)//2],2)) + ', ' + str(round(tlons[len(tlons)//2],2)) + ') \n TLE generated'
+    gstr = '06/14/20 06:59:20 (-43.64, -120.91): \ntime lock: 1 position lock: 1 \n06/14/20 06:59:32 (-44.03, -120.06): \ntime lock: 1 position lock: 1 \n06/14/20 06:59:44 (-44.41, -119.19): \ntime lock: 1 position lock: 1 \n06/14/20 06:59:56 (-44.79, -118.31): \ntime lock: 1 position lock: 1 \n06/14/20 07:00:08 (-45.16, -117.42): \ntime lock: 1 position lock: 1 \n'
+    
     #m_ax.text(1, 0, gstr, fontsize='10') # ha='center', va='bottom')    
     return gstr

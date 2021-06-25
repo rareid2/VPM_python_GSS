@@ -121,23 +121,25 @@ def plot_burst_TD(fig, burst, cal_data = None):
 # --------- Time domain plots  -----------
         # fig = plt.figure()
         fig.set_size_inches(10,8)
-        gs = GridSpec(2, 2, height_ratios=[1.25,1], wspace = 0.2, hspace = 0.25)
-        E_TD = fig.add_subplot(gs[0,0])
+        #gs = GridSpec(2, 2, height_ratios=[1.25,1], wspace = 0.2, hspace = 0.25)
+        gs = GridSpec(1, 1)
+        
+        #E_TD = fig.add_subplot(gs[0,0])
         # B_TD = fig.add_subplot(gs[1,0], sharex=E_TD)
-        E_FD = fig.add_subplot(gs[0,1], sharex=E_TD)
+        E_FD = fig.add_subplot(gs[0])
         # B_FD = fig.add_subplot(gs[1,1], sharex=E_FD)
         # cb1  = fig.add_subplot(gs[0,2])
         # cb2  = fig.add_subplot(gs[1,2])
 
         # add in burst map to plot -- werid workaround but it fixed it
-        map_ax = fig.add_subplot(gs[1,0:2])
-        box = map_ax.get_position()
-        box.x0 = box.x0 - 0.13
-        box.x1 = box.x1 - 0.13
-        map_ax.set_position(box)
-        gstr = plot_burst_map(map_ax, burst['G'], burst)
+        #map_ax = fig.add_subplot(gs[1,0:2])
+        #box = map_ax.get_position()
+        #box.x0 = box.x0 - 0.13
+        #box.x1 = box.x1 - 0.13
+        #map_ax.set_position(box)
+        #gstr = plot_burst_map(map_ax, burst['G'], burst)
     
-        fig.text(0.68, 0.28, gstr, fontsize='9') # ha='center', va='bottom')
+        #fig.text(0.68, 0.12, gstr, fontsize='9') # ha='center', va='bottom')
 
         # Construct the appropriate time and frequency axes
         # Get the equivalent sample rate, if decimated
@@ -176,11 +178,11 @@ def plot_burst_TD(fig, burst, cal_data = None):
         sec_on  = cfg['SAMPLES_ON']/fs
         sec_off = cfg['SAMPLES_OFF']/fs
         
-
-        #E_TD.plot(t_axis[0:len(burst['E'])], E_coef*burst['E'])
-        E_TD.plot(t_axis[0:len(burst['E'])], E_coef*burst['E'][0:len(t_axis)])
+        # add in a signal - 20 uV/m
+        #extra_signal  = 3*np.sin(np.array(t_axis)*2*np.pi*8.2e3)
+        #E_TD.plot(t_axis[0:len(burst['E'])], (E_coef*burst['E'])+extra_signal)
+        #E_TD.plot(t_axis[0:len(burst['E'])], E_coef*burst['E'][0:len(t_axis)])
         # B_TD.plot(t_axis[0:len(burst['B'])], B_coef*burst['B'])
-
 
         # E_TD.set_ylim(td_lims)
         # B_TD.set_ylim(td_lims)
@@ -199,8 +201,11 @@ def plot_burst_TD(fig, burst, cal_data = None):
             B_td_spaced = []
             
             for k in np.arange(cfg['burst_pulses']):
-                E_td_spaced.append(E_coef*burst['E'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
+                #if k ==2:
+                the_data = E_coef*burst['E']
+                E_td_spaced.append(the_data[k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
                 E_td_spaced.append(np.ones(cfg['SAMPLES_OFF'])*np.nan)
+
                 B_td_spaced.append(B_coef*burst['B'][k*cfg['SAMPLES_ON']:(k+1)*cfg['SAMPLES_ON']])
                 B_td_spaced.append(np.ones(cfg['SAMPLES_OFF'])*np.nan)
 
@@ -229,8 +234,6 @@ def plot_burst_TD(fig, burst, cal_data = None):
         #np.savetxt('burstE.txt', FE, delimiter=",")
         #np.savetxt('burstT.txt', tt, delimiter=",")
         #np.savetxt('burstF.txt', ff, delimiter=",")
-
-        Eoutput = np.genfromtxt('burstE.txt', delimiter=',')
         #print('E', np.shape(Eoutput))
 
         # B spectrogram
@@ -242,13 +245,13 @@ def plot_burst_TD(fig, burst, cal_data = None):
         # pb = B_FD.pcolorfast(tt,ff/1000, B_S_mag, cmap = cm, vmin=b_clims[0], vmax=b_clims[1])
         # cb = fig.colorbar(pb, cax=cb2)
 
-        E_TD.set_ylabel(f'E Amplitude\n[{E_unit_string}]')
+        #E_TD.set_ylabel(f'E Amplitude\n[{E_unit_string}]')
         # B_TD.set_ylabel(f'B Amplitude\n[{B_unit_string}]')
         E_FD.set_ylabel('Frequency [kHz]')
         # B_FD.set_ylabel('Frequency [kHz]')
-        E_TD.set_xlabel('Time [sec from start]')
+        #E_TD.set_xlabel('Time [sec from start]')
         E_FD.set_xlabel('Time [sec from start]')
-        E_TD.set_xlim([0,20])
+        #E_TD.set_xlim([0,20])
 
         ce.set_label(f'dB[(uV/m)^2/Hz]')
         # cb.set_label(f'dB[{B_unit_string}]')
@@ -262,7 +265,8 @@ def plot_burst_TD(fig, burst, cal_data = None):
         else:
             fig.suptitle('VPM Burst Data\n%s - n = %d, %d on / %d off'
                 %(start_timestamp, cfg['burst_pulses'], sec_on, sec_off))
-        #fig.savefig(filename, bbox_inches='tight')
+        #E_FD.set_xlim([0,6])
+        fig.savefig('burst.svg', format='svg')
 
     # # Save it!
     # if ind == 0:
